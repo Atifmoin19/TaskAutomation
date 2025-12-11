@@ -9,10 +9,25 @@ import Login from "Pages/login";
 import TaskListPage from "Pages/taskList";
 import { useAppSelector } from "app/hooks";
 import { Navigate, Outlet } from "react-router-dom";
+import SuperAdminDashboard from "Pages/SuperAdmin/SuperAdminDashboard";
+import CreateTaskPage from "Pages/SuperAdmin/CreateTaskPage";
+import CreateUserPage from "Pages/SuperAdmin/CreateUserPage";
+import { SUPER_ADMIN_ROLES } from "Utils/constants";
 
 const ProtectedRoute = () => {
   const { currentUser } = useAppSelector((state) => state.scheduler);
   return currentUser ? <Outlet /> : <Navigate to="/login" replace />;
+};
+
+const RoleProtectedRoute = ({ allowedRoles }: { allowedRoles: string[] }) => {
+  const { currentUser } = useAppSelector((state) => state.scheduler);
+  if (!currentUser) return <Navigate to="/login" replace />;
+
+  if (!allowedRoles.includes(currentUser.emp_designation)) {
+    return <Navigate to="/" replace />; // Redirect to basic dashboard if not authorized
+  }
+
+  return <Outlet />;
 };
 
 function AnimatedRoutes() {
@@ -22,9 +37,20 @@ function AnimatedRoutes() {
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<Login />} />
+
+        {/* Basic authenticated routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/task-list" element={<TaskListPage />} />
+        </Route>
+
+        {/* Super Admin routes */}
+        <Route
+          element={<RoleProtectedRoute allowedRoles={SUPER_ADMIN_ROLES} />}
+        >
+          <Route path="/dashboard/home" element={<SuperAdminDashboard />} />
+          <Route path="/dashboard/create-task" element={<CreateTaskPage />} />
+          <Route path="/dashboard/create-user" element={<CreateUserPage />} />
         </Route>
       </Routes>
     </AnimatePresence>

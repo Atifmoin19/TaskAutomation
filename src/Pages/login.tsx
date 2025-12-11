@@ -11,6 +11,7 @@ import {
   useToast,
   Container,
 } from "@chakra-ui/react";
+import { SUPER_ADMIN_ROLES } from "Utils/constants";
 import { useAppDispatch } from "app/hooks";
 import { setCurrentUser, setToken } from "app/slices/scheduler.slice";
 import { useNavigate } from "react-router-dom";
@@ -41,7 +42,12 @@ const Login: React.FC = () => {
           title: `Welcome ${result?.userData?.emp_name}`,
           status: "success",
         });
-        navigate("/");
+
+        if (SUPER_ADMIN_ROLES.includes(result?.userData?.emp_designation)) {
+          navigate("/dashboard/home");
+        } else {
+          navigate("/");
+        }
       }
     } catch (error) {
       console.log(error, "errorerrorerror");

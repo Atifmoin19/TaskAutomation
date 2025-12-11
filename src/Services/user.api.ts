@@ -56,9 +56,31 @@ export const userApi = createApi({
         method: "POST",
       }),
     }),
+    createUser: builder.mutation<any, any>({
+      query: (body) => ({
+        url: "/user",
+        method: "POST",
+        body: body,
+      }),
+    }),
+    uploadTasks: builder.mutation<any, any>({
+      query: (body) => ({
+        url: "/tasks/upload",
+        method: "POST",
+        body: body,
+      }),
+      invalidatesTags: ["Task"],
+    }),
+    uploadUsers: builder.mutation<any, any>({
+      query: (body) => ({
+        url: "/users/upload",
+        method: "POST",
+        body: body,
+      }),
+    }),
 
 
   }),
 });
 
-export const { useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation } = userApi;
+export const { useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation } = userApi;

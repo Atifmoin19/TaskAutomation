@@ -1,7 +1,6 @@
 import { BaseQueryFn } from "@reduxjs/toolkit/dist/query";
 import axios, { type AxiosRequestConfig } from "axios";
 import { BASE_URL } from "../Utils/constants";
-import { store } from "app/store";
 
 export const getDefaultHeaders = ({
   token,
@@ -58,18 +57,26 @@ export const axiosBaseQuery =
     async ({ url, method, body, params = {}, headers, responseType }) => {
       const { store } = await import("../app/store");
       const token = store.getState().scheduler.token;
+
+      let requestHeaders: any = headers;
+      if (!requestHeaders) {
+        requestHeaders = getDefaultHeaders({
+          baseUrl,
+          token: token ?? "",
+        });
+        // If body is FormData, let browser/axios set Content-Type to multipart/form-data with boundary
+        if (body instanceof FormData) {
+          delete requestHeaders["Content-Type"];
+        }
+      }
+
       try {
         const result = await axios({
           url: baseUrl + url,
           method,
           data: body,
           params: params,
-          headers:
-            headers ??
-            getDefaultHeaders({
-              baseUrl,
-              token: token ?? "",
-            }),
+          headers: requestHeaders,
           responseType,
         });
         return { data: result?.data?.data };

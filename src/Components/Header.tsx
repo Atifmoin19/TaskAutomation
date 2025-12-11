@@ -13,7 +13,7 @@ import {
 } from "@chakra-ui/react";
 import { FaUser, FaPowerOff, FaHome, FaTasks, FaBars } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { HEADER_HEIGHT, ADMIN_ROLES } from "Utils/constants";
+import { HEADER_HEIGHT, ADMIN_ROLES, SUPER_ADMIN_ROLES } from "Utils/constants";
 import { useAppSelector, useAppDispatch } from "app/hooks";
 import { resetStore } from "app/slices/scheduler.slice";
 import { useLogoutMutation } from "Services/user.api";
@@ -62,7 +62,16 @@ const Header = () => {
             fontWeight="bold"
             color="blue.600"
             cursor="pointer"
-            onClick={() => navigate("/")}
+            onClick={() => {
+              if (
+                currentUser &&
+                SUPER_ADMIN_ROLES.includes(currentUser.emp_designation)
+              ) {
+                navigate("/dashboard/home");
+              } else {
+                navigate("/");
+              }
+            }}
           >
             TaskBoard
           </Text>

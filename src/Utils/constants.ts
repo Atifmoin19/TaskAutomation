@@ -3,7 +3,8 @@ export const BASE_URL = import.meta.env.VITE_APP_BASE_URL ?? "";
 
 export const HEADER_HEIGHT = "3.6rem";
 
-export const ADMIN_ROLES = ["admin", "product", "manager"];
+export const ADMIN_ROLES = ["admin", "product"];
+export const SUPER_ADMIN_ROLES = ["superadmin", "owner"];
 
 export const DUMMY_USERS = [
     {
