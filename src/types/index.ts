@@ -9,6 +9,7 @@ export interface Employee {
     emp_designation: string; // "admin" | "developer"
     emp_department?: string;
     emp_hierarchy?: string;
+    manager_id?: string; // emp_id of the manager
     avatar?: string; // Optional frontend prop
 }
 

@@ -15,10 +15,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { useDisclosure } from "@chakra-ui/react";
 import { Task } from "types";
 import TaskCreationModal from "Components/Timeline/TaskCreationModal";
-import { useTaskListQuery } from "Services/user.api";
+import { useTaskListQuery, useLazyUserListQuery } from "Services/user.api";
 import { useAppDispatch, useAppSelector } from "app/hooks";
-import { addTask } from "app/slices/scheduler.slice";
-import { ADMIN_ROLES } from "Utils/constants";
+import { addTask, addDeveloper } from "app/slices/scheduler.slice";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES } from "Utils/constants";
 import { FaChartBar } from "react-icons/fa";
 
 const TaskListPage: React.FC = () => {
@@ -29,21 +29,35 @@ const TaskListPage: React.FC = () => {
   const navigate = useNavigate();
 
   const isAdmin =
-    currentUser && ADMIN_ROLES.includes(currentUser.emp_designation);
+    currentUser &&
+    (ADMIN_ROLES.includes(currentUser.emp_designation) ||
+      SUPER_ADMIN_ROLES.includes(currentUser.emp_designation));
 
   const { data: taskData } = useTaskListQuery(
     { ...(!isAdmin && { user_id: currentUser?.emp_id }) },
     {
       refetchOnMountOrArgChange: true,
-      skip: !currentUser && !isAdmin,
+      skip: !currentUser,
     }
   );
+
+  const [getUserList] = useLazyUserListQuery();
 
   useEffect(() => {
     if (taskData) {
       dispatch(addTask(taskData));
     }
   }, [taskData, dispatch]);
+
+  useEffect(() => {
+    if (currentUser) {
+      getUserList({ user_id: currentUser.emp_id })
+        .unwrap()
+        .then((resp) => {
+          dispatch(addDeveloper(resp));
+        });
+    }
+  }, [currentUser, getUserList, dispatch]);
 
   const handleEditTask = (task: Task) => {
     setEditTask(task);

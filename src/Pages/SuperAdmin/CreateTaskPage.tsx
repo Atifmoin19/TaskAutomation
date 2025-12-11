@@ -20,7 +20,8 @@ import {
   NumberDecrementStepper,
   Button,
   useToast,
-  VStack,
+  SimpleGrid,
+  GridItem,
 } from "@chakra-ui/react";
 import SimpleLayout from "Layouts/simpleLayout";
 import {
@@ -30,6 +31,7 @@ import {
 import { useAppDispatch, useAppSelector } from "app/hooks";
 import { addTask } from "app/slices/scheduler.slice";
 import { Priority, Task } from "types";
+import { ROLE_RANK } from "Utils/constants";
 
 const CreateTaskPage: React.FC = () => {
   const [createTask] = useCreateTaskMutation();
@@ -111,109 +113,124 @@ const CreateTaskPage: React.FC = () => {
 
   return (
     <SimpleLayout>
-      <Container maxW="container.md" py={8}>
-        <Heading size="lg" mb={6} color="gray.700">
+      <Container maxW="container.xl" py={8}>
+        <Heading size="lg" mb={6} color="gray.700" textAlign="center">
           Create Task
         </Heading>
-        <Tabs variant="enclosed">
-          <TabList>
+        <Tabs variant="soft-rounded" colorScheme="blue">
+          <TabList mb={4} justifyContent="center">
             <Tab>Single Task Creation</Tab>
             <Tab>Bulk Task Creation</Tab>
           </TabList>
 
           <TabPanels>
             <TabPanel>
-              <VStack
-                spacing={4}
-                align="stretch"
+              <Box
                 bg="white"
-                p={6}
-                borderRadius="md"
-                shadow="sm"
+                p={8}
+                borderRadius="xl"
+                boxShadow="xl"
+                border="1px solid"
+                borderColor="gray.100"
               >
-                <FormControl isRequired>
-                  <FormLabel>Task Title</FormLabel>
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Fix Login Bug"
-                  />
-                </FormControl>
+                <Heading size="md" color="gray.600" mb={6}>
+                  Task Details
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+                  <GridItem colSpan={{ base: 1, md: 2 }}>
+                    <FormControl isRequired>
+                      <FormLabel>Task Title</FormLabel>
+                      <Input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g. Fix Login Bug"
+                      />
+                    </FormControl>
+                  </GridItem>
 
-                <FormControl>
-                  <FormLabel>Description</FormLabel>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Details..."
-                  />
-                </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Duration (Hours)</FormLabel>
+                    <NumberInput
+                      min={0.5}
+                      max={100}
+                      value={duration}
+                      onChange={(val) => setDuration(Number(val))}
+                    >
+                      <NumberInputField />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                  </FormControl>
 
-                <FormControl isRequired>
-                  <FormLabel>Duration (Hours)</FormLabel>
-                  <NumberInput
-                    min={0.5}
-                    max={100}
-                    value={duration}
-                    onChange={(val) => setDuration(Number(val))}
-                  >
-                    <NumberInputField />
-                    <NumberInputStepper>
-                      <NumberIncrementStepper />
-                      <NumberDecrementStepper />
-                    </NumberInputStepper>
-                  </NumberInput>
-                </FormControl>
+                  <GridItem colSpan={{ base: 1, md: 3 }}>
+                    <FormControl>
+                      <FormLabel>Description</FormLabel>
+                      <Textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Details..."
+                        rows={4}
+                      />
+                    </FormControl>
+                  </GridItem>
 
-                <FormControl>
-                  <FormLabel>Priority</FormLabel>
-                  <Select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as Priority)}
-                  >
-                    <option value="P0">P0 - Critical</option>
-                    <option value="P1">P1 - High</option>
-                    <option value="P2">P2 - Normal</option>
-                  </Select>
-                </FormControl>
+                  <FormControl>
+                    <FormLabel>Priority</FormLabel>
+                    <Select
+                      value={priority}
+                      onChange={(e) => setPriority(e.target.value as Priority)}
+                    >
+                      <option value="P0">P0 - Critical</option>
+                      <option value="P1">P1 - High</option>
+                      <option value="P2">P2 - Normal</option>
+                    </Select>
+                  </FormControl>
 
-                <FormControl>
-                  <FormLabel>Status</FormLabel>
-                  <Select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="backlog">Backlog</option>
-                    <option value="todo">To Do</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="done">Done</option>
-                  </Select>
-                </FormControl>
+                  <FormControl>
+                    <FormLabel>Status</FormLabel>
+                    <Select
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value)}
+                    >
+                      <option value="backlog">Backlog</option>
+                      <option value="todo">To Do</option>
+                      <option value="in-progress">In Progress</option>
+                      <option value="done">Done</option>
+                    </Select>
+                  </FormControl>
 
-                <FormControl isRequired>
-                  <FormLabel>Assign To</FormLabel>
-                  <Select
-                    value={assigneeId}
-                    onChange={(e) => setAssigneeId(e.target.value)}
-                    placeholder="Select User"
-                  >
-                    {developers?.map((dev) => (
-                      <option key={dev.id} value={dev.emp_id}>
-                        {dev.emp_name} ({dev.emp_designation})
-                      </option>
-                    ))}
-                  </Select>
-                </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Assign To</FormLabel>
+                    <Select
+                      value={assigneeId}
+                      onChange={(e) => setAssigneeId(e.target.value)}
+                      placeholder="Select User"
+                    >
+                      {developers
+                        ?.filter(
+                          (dev) => (ROLE_RANK[dev.emp_designation] || 0) < 4
+                        )
+                        .map((dev) => (
+                          <option key={dev.id} value={dev.emp_id}>
+                            {dev.emp_name} ({dev.emp_designation})
+                          </option>
+                        ))}
+                    </Select>
+                  </FormControl>
+                </SimpleGrid>
 
                 <Button
                   colorScheme="blue"
                   onClick={handleSingleSubmit}
                   width="full"
-                  mt={4}
+                  mt={8}
+                  size="lg"
                 >
                   Create Task
                 </Button>
-              </VStack>
+              </Box>
             </TabPanel>
             <TabPanel>
               <Box

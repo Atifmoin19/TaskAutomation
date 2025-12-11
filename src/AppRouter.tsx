@@ -12,6 +12,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import SuperAdminDashboard from "Pages/SuperAdmin/SuperAdminDashboard";
 import CreateTaskPage from "Pages/SuperAdmin/CreateTaskPage";
 import CreateUserPage from "Pages/SuperAdmin/CreateUserPage";
+import UserManagementPage from "Pages/SuperAdmin/UserManagementPage";
 import { SUPER_ADMIN_ROLES } from "Utils/constants";
 
 const ProtectedRoute = () => {
@@ -51,6 +52,10 @@ function AnimatedRoutes() {
           <Route path="/dashboard/home" element={<SuperAdminDashboard />} />
           <Route path="/dashboard/create-task" element={<CreateTaskPage />} />
           <Route path="/dashboard/create-user" element={<CreateUserPage />} />
+          <Route
+            path="/dashboard/update-user"
+            element={<UserManagementPage />}
+          />
         </Route>
       </Routes>
     </AnimatePresence>

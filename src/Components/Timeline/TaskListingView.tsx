@@ -14,7 +14,8 @@ import {
 } from "@chakra-ui/react";
 import { useAppSelector } from "app/hooks";
 import { Task } from "types";
-import { ADMIN_ROLES } from "Utils/constants";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES, ROLE_RANK } from "Utils/constants";
+import { UserHierarchyPopover } from "Components/UserHierarchyPopover";
 
 interface TaskListingViewProps {
   onEditTask: (task: Task) => void;
@@ -28,10 +29,27 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({ onEditTask }) => {
   } = useAppSelector((state) => state.scheduler);
 
   const tasks = React.useMemo(() => {
-    if (!currentUser || ADMIN_ROLES.includes(currentUser.emp_designation))
-      return allTasks;
-    return allTasks?.filter((t) => t.task_assigned_to === currentUser.emp_id);
-  }, [allTasks, currentUser]);
+    let filteredTasks = allTasks;
+
+    // 1. Filter by role (User only sees own, Admin sees all/hierarchy)
+    if (
+      !currentUser ||
+      (!ADMIN_ROLES.includes(currentUser.emp_designation) &&
+        !SUPER_ADMIN_ROLES.includes(currentUser.emp_designation))
+    ) {
+      filteredTasks = allTasks?.filter(
+        (t) => t.task_assigned_to === currentUser?.emp_id
+      );
+    }
+
+    // 2. Filter out tasks assigned to Rank 4/5 users (EM, CTO, etc.)
+    return filteredTasks?.filter((t) => {
+      const assignee = developers.find((d) => d.emp_id === t.task_assigned_to);
+      if (!assignee) return true; // Show unassigned or unknown users
+      const rank = ROLE_RANK[assignee.emp_designation] || 0;
+      return rank < 4;
+    });
+  }, [allTasks, currentUser, developers]);
   const bg = useColorModeValue("white", "gray.800");
   const getAssignee = (id?: string) => developers.find((d) => d.emp_id === id);
 
@@ -80,14 +98,21 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({ onEditTask }) => {
                 </Td>
                 <Td>
                   {assignee ? (
-                    <Box display="flex" alignItems="center" gap={2}>
-                      <Avatar
-                        size="xs"
-                        name={assignee.emp_name}
-                        src={assignee.avatar}
-                      />
-                      <Text fontSize="sm">{assignee.emp_name}</Text>
-                    </Box>
+                    <UserHierarchyPopover user={assignee}>
+                      <Box
+                        display="flex"
+                        alignItems="center"
+                        gap={2}
+                        cursor="pointer"
+                      >
+                        <Avatar
+                          size="xs"
+                          name={assignee.emp_name}
+                          src={assignee.avatar}
+                        />
+                        <Text fontSize="sm">{assignee.emp_name}</Text>
+                      </Box>
+                    </UserHierarchyPopover>
                   ) : (
                     <Text fontSize="sm" color="gray.400">
                       Unassigned

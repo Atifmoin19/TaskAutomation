@@ -14,19 +14,30 @@ import {
   Select,
   Button,
   useToast,
-  VStack,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import SimpleLayout from "Layouts/simpleLayout";
 import {
   useCreateUserMutation,
   useUploadUsersMutation,
+  useLazyUserListQuery,
 } from "Services/user.api";
+import { DESIGNATIONS, ROLE_RANK } from "Utils/constants";
+import { useAppSelector } from "app/hooks";
+import { Employee } from "types";
 
 const CreateUserPage: React.FC = () => {
   const [createUser] = useCreateUserMutation();
   const [uploadUsers, { isLoading: isUploading }] = useUploadUsersMutation();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { developers: reduxDevelopers } = useAppSelector(
+    (state) => state.scheduler
+  );
+
+  const [triggerUserList] = useLazyUserListQuery();
+  const potentialManagers = reduxDevelopers;
 
   // Single User State
   const [empName, setEmpName] = useState("");
@@ -36,6 +47,19 @@ const CreateUserPage: React.FC = () => {
   const [empDesignation, setEmpDesignation] = useState("");
   const [empDepartment, setEmpDepartment] = useState("");
   const [empHierarchy, setEmpHierarchy] = useState("");
+  const [managerId, setManagerId] = useState("");
+
+  const createRank = ROLE_RANK[empDesignation] || 0;
+  const showCreateManager = createRank < 5;
+  const validCreateManagers = potentialManagers.filter(
+    (m: Employee) => (ROLE_RANK[m.emp_designation] || 0) > createRank
+  );
+
+  React.useEffect(() => {
+    if (reduxDevelopers.length === 0) {
+      triggerUserList({});
+    }
+  }, [reduxDevelopers.length, triggerUserList]);
 
   // Bulk Upload State
   const [file, setFile] = useState<File | null>(null);
@@ -54,6 +78,7 @@ const CreateUserPage: React.FC = () => {
       emp_designation: empDesignation,
       emp_department: empDepartment,
       emp_hierarchy: empHierarchy || undefined,
+      manager_id: showCreateManager ? managerId : undefined,
     };
 
     try {
@@ -67,6 +92,7 @@ const CreateUserPage: React.FC = () => {
       setEmpDesignation("");
       setEmpDepartment("");
       setEmpHierarchy("");
+      setManagerId("");
     } catch (err) {
       toast({
         title: "Failed to create user",
@@ -103,104 +129,133 @@ const CreateUserPage: React.FC = () => {
 
   return (
     <SimpleLayout>
-      <Container maxW="container.md" py={8}>
-        <Heading size="lg" mb={6} color="gray.700">
+      <Container maxW="container.xl" py={8}>
+        <Heading size="lg" mb={6} color="gray.700" textAlign="center">
           Create User
         </Heading>
-        <Tabs variant="enclosed">
-          <TabList>
+        <Tabs variant="soft-rounded" colorScheme="blue">
+          <TabList mb={4} justifyContent="center">
             <Tab>Single User Creation</Tab>
             <Tab>Bulk User Creation</Tab>
           </TabList>
 
           <TabPanels>
             <TabPanel>
-              <VStack
-                spacing={4}
-                align="stretch"
+              <Box
                 bg="white"
-                p={6}
-                borderRadius="md"
-                shadow="sm"
+                p={8}
+                borderRadius="xl"
+                boxShadow="xl"
+                border="1px solid"
+                borderColor="gray.100"
               >
-                <FormControl isRequired>
-                  <FormLabel>Employee Name</FormLabel>
-                  <Input
-                    value={empName}
-                    onChange={(e) => setEmpName(e.target.value)}
-                    placeholder="e.g. Atif Moin"
-                  />
-                </FormControl>
+                <Heading size="md" color="gray.600" mb={6}>
+                  User Details
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+                  <FormControl isRequired>
+                    <FormLabel>Employee Name</FormLabel>
+                    <Input
+                      value={empName}
+                      onChange={(e) => setEmpName(e.target.value)}
+                      placeholder="e.g. Atif Moin"
+                    />
+                  </FormControl>
 
-                <FormControl isRequired>
-                  <FormLabel>Employee ID</FormLabel>
-                  <Input
-                    value={empId}
-                    onChange={(e) => setEmpId(e.target.value)}
-                    placeholder="e.g. S00218"
-                  />
-                </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Employee ID</FormLabel>
+                    <Input
+                      value={empId}
+                      onChange={(e) => setEmpId(e.target.value)}
+                      placeholder="e.g. S00218"
+                    />
+                  </FormControl>
 
-                <FormControl isRequired>
-                  <FormLabel>Email</FormLabel>
-                  <Input
-                    type="email"
-                    value={empEmail}
-                    onChange={(e) => setEmpEmail(e.target.value)}
-                    placeholder="e.g. atif.moin@zopper.com"
-                  />
-                </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Email</FormLabel>
+                    <Input
+                      type="email"
+                      value={empEmail}
+                      onChange={(e) => setEmpEmail(e.target.value)}
+                      placeholder="e.g. atif.moin@zopper.com"
+                    />
+                  </FormControl>
 
-                <FormControl>
-                  <FormLabel>Phone</FormLabel>
-                  <Input
-                    value={empPhone}
-                    onChange={(e) => setEmpPhone(e.target.value)}
-                    placeholder="e.g. 7007136187"
-                  />
-                </FormControl>
+                  <FormControl>
+                    <FormLabel>Phone</FormLabel>
+                    <Input
+                      value={empPhone}
+                      onChange={(e) => setEmpPhone(e.target.value)}
+                      placeholder="e.g. 7007136187"
+                    />
+                  </FormControl>
 
-                <FormControl isRequired>
-                  <FormLabel>Designation</FormLabel>
-                  <Input
-                    value={empDesignation}
-                    onChange={(e) => setEmpDesignation(e.target.value)}
-                    placeholder="e.g. SE1"
-                  />
-                </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel>Designation</FormLabel>
+                    <Select
+                      value={empDesignation}
+                      onChange={(e) => setEmpDesignation(e.target.value)}
+                      placeholder="Select Designation"
+                    >
+                      {DESIGNATIONS.map((des) => (
+                        <option key={des} value={des}>
+                          {des}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-                <FormControl>
-                  <FormLabel>Department</FormLabel>
-                  <Input
-                    value={empDepartment}
-                    onChange={(e) => setEmpDepartment(e.target.value)}
-                    placeholder="e.g. FE"
-                  />
-                </FormControl>
+                  {showCreateManager && empDesignation && (
+                    <FormControl isRequired>
+                      <FormLabel>Manager</FormLabel>
+                      <Select
+                        value={managerId}
+                        onChange={(e) => setManagerId(e.target.value)}
+                        placeholder="Select Manager"
+                      >
+                        {validCreateManagers.map((dev: any) => (
+                          <option key={dev.id || dev.emp_id} value={dev.emp_id}>
+                            {dev.emp_name} ({dev.emp_designation})
+                          </option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
 
-                <FormControl>
-                  <FormLabel>Hierarchy</FormLabel>
-                  <Select
-                    value={empHierarchy}
-                    onChange={(e) => setEmpHierarchy(e.target.value)}
-                    placeholder="Select Hierarchy"
-                  >
-                    <option value="EMPLOYEE">Employee</option>
-                    <option value="L1">L1</option>
-                    <option value="L2">L2</option>
-                    <option value="Admin">Admin</option>
-                  </Select>
-                </FormControl>
+                  <FormControl>
+                    <FormLabel>Department</FormLabel>
+                    <Input
+                      value={empDepartment}
+                      onChange={(e) => setEmpDepartment(e.target.value)}
+                      placeholder="e.g. FE"
+                    />
+                  </FormControl>
+
+                  <FormControl>
+                    <FormLabel>Hierarchy</FormLabel>
+                    <Select
+                      value={empHierarchy}
+                      onChange={(e) => setEmpHierarchy(e.target.value)}
+                      placeholder="Select Hierarchy"
+                    >
+                      <option value="EMPLOYEE">Employee</option>
+                      <option value="L1">L1</option>
+                      <option value="L2">L2</option>
+                      <option value="Admin">Admin</option>
+                    </Select>
+                  </FormControl>
+                </SimpleGrid>
 
                 <Button
                   colorScheme="green"
                   onClick={handleSingleSubmit}
                   width="full"
-                  mt={4}
+                  mt={8}
+                  size="lg"
                 >
                   Create User
                 </Button>
-              </VStack>
+              </Box>
             </TabPanel>
             <TabPanel>
               <Box
@@ -243,5 +298,4 @@ const CreateUserPage: React.FC = () => {
     </SimpleLayout>
   );
 };
-
 export default CreateUserPage;

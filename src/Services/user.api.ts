@@ -4,7 +4,7 @@ import { baseUrlQuery } from "Services/baseQuery";
 export const userApi = createApi({
   reducerPath: "userApi",
   baseQuery: baseUrlQuery,
-  tagTypes: ["Task"],
+  tagTypes: ["Task", "User"],
   endpoints: (builder) => ({
     userList: builder.query<any, any>({
       query: (param) => ({
@@ -12,6 +12,7 @@ export const userApi = createApi({
         method: "GET",
         params: param,
       }),
+      providesTags: ["User"],
     }),
     getUser: builder.query<any, string>({
       query: (id) => ({
@@ -62,6 +63,15 @@ export const userApi = createApi({
         method: "POST",
         body: body,
       }),
+      invalidatesTags: ["User"],
+    }),
+    updateUser: builder.mutation<any, any>({
+      query: (body) => ({
+        url: `/user/${body.emp_id}`,
+        method: "PUT",
+        body: body,
+      }),
+      invalidatesTags: ["User"],
     }),
     uploadTasks: builder.mutation<any, any>({
       query: (body) => ({
@@ -77,10 +87,11 @@ export const userApi = createApi({
         method: "POST",
         body: body,
       }),
+      invalidatesTags: ["User"],
     }),
 
 
   }),
 });
 
-export const { useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation } = userApi;
+export const { useUserListQuery, useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation, useUpdateUserMutation } = userApi;

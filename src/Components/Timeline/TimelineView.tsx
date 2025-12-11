@@ -30,9 +30,10 @@ import {
 import { useAppDispatch, useAppSelector } from "app/hooks";
 import { calculateSchedule, getLocalDateKey } from "Utils/scheduler";
 import { Task } from "types";
-import { ADMIN_ROLES } from "Utils/constants";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES, ROLE_RANK } from "Utils/constants";
 import { updateTask } from "app/slices/scheduler.slice";
 import { useUpdateTaskMutation } from "Services/user.api";
+import { UserHierarchyPopover } from "Components/UserHierarchyPopover";
 
 interface TimelineViewProps {
   onEditTask: (task: Task) => void;
@@ -50,9 +51,30 @@ const TimelineView: React.FC<TimelineViewProps> = ({ onEditTask }) => {
   const [updateTaskApi] = useUpdateTaskMutation();
 
   const developers = useMemo(() => {
-    if (!currentUser || ADMIN_ROLES.includes(currentUser.emp_designation))
-      return allDevelopers;
-    return allDevelopers.filter((d) => d.emp_id === currentUser.emp_id);
+    if (!currentUser) return [];
+
+    const designation = currentUser.emp_designation;
+    const isSuperAdmin = SUPER_ADMIN_ROLES.includes(designation);
+    const isAdmin = ADMIN_ROLES.includes(designation);
+
+    // Filter out Rank 4 (EM) and Rank 5 (CTO/SuperAdmin/Owner/Product) from timeline
+    // They cannot be assigned tasks.
+    const assignableDevs = allDevelopers.filter(
+      (d) => (ROLE_RANK[d.emp_designation] || 0) < 4
+    );
+
+    if (isSuperAdmin) return assignableDevs;
+
+    if (isAdmin) {
+      // Show direct reports only (since self is likely Rank >> 4, self is filtered out)
+      return assignableDevs.filter(
+        (d) =>
+          d.manager_id === currentUser.emp_id || d.emp_id === currentUser.emp_id
+      );
+    }
+
+    // Regular user
+    return assignableDevs.filter((d) => d.emp_id === currentUser.emp_id);
   }, [allDevelopers, currentUser]);
 
   // Default date logic: If now > EndHour, show Tomorrow.
@@ -194,12 +216,21 @@ const TimelineView: React.FC<TimelineViewProps> = ({ onEditTask }) => {
               display="flex"
               alignItems="center"
             >
-              <Box w="150px" pr={4} display="flex" alignItems="center" gap={2}>
-                <Avatar size="sm" name={dev.emp_name} src={dev.avatar} />
-                <Text fontSize="sm" fontWeight="bold" isTruncated>
-                  {dev.emp_name}
-                </Text>
-              </Box>
+              <UserHierarchyPopover user={dev}>
+                <Box
+                  w="150px"
+                  pr={4}
+                  display="flex"
+                  alignItems="center"
+                  gap={2}
+                  cursor="pointer"
+                >
+                  <Avatar size="sm" name={dev.emp_name} src={dev.avatar} />
+                  <Text fontSize="sm" fontWeight="bold" isTruncated>
+                    {dev.emp_name}
+                  </Text>
+                </Box>
+              </UserHierarchyPopover>
               <Box
                 flex={1}
                 position="relative"

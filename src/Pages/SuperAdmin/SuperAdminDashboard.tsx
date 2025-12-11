@@ -9,7 +9,7 @@ import {
   CardBody,
   Icon,
 } from "@chakra-ui/react";
-import { FaUserPlus, FaTasks } from "react-icons/fa";
+import { FaUserPlus, FaTasks, FaCalendarAlt, FaUserEdit } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import SimpleLayout from "Layouts/simpleLayout";
 
@@ -56,6 +56,44 @@ const SuperAdminDashboard: React.FC = () => {
                 </Heading>
                 <Text color="gray.500" textAlign="center">
                   Onboard new users individually or via bulk CSV upload.
+                </Text>
+              </VStack>
+            </CardBody>
+          </Card>
+
+          <Card
+            cursor="pointer"
+            onClick={() => navigate("/dashboard/update-user")}
+            _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
+            transition="all 0.2s"
+          >
+            <CardBody>
+              <VStack spacing={4} align="center" py={8}>
+                <Icon as={FaUserEdit} boxSize={12} color="orange.500" />
+                <Heading size="md" color="gray.700">
+                  Update Users
+                </Heading>
+                <Text color="gray.500" textAlign="center">
+                  View and manage existing users and their details.
+                </Text>
+              </VStack>
+            </CardBody>
+          </Card>
+
+          <Card
+            cursor="pointer"
+            onClick={() => navigate("/")}
+            _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
+            transition="all 0.2s"
+          >
+            <CardBody>
+              <VStack spacing={4} align="center" py={8}>
+                <Icon as={FaCalendarAlt} boxSize={12} color="purple.500" />
+                <Heading size="md" color="gray.700">
+                  View Timeline
+                </Heading>
+                <Text color="gray.500" textAlign="center">
+                  View and manage all tasks in the timeline view.
                 </Text>
               </VStack>
             </CardBody>

@@ -24,7 +24,7 @@ import { Task } from "types";
 import SimpleLayout from "Layouts/simpleLayout";
 import { addDeveloper, addTask } from "app/slices/scheduler.slice";
 import { useTaskListQuery, useLazyUserListQuery } from "Services/user.api";
-import { ADMIN_ROLES } from "Utils/constants";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES } from "Utils/constants";
 
 const Dashboard: React.FC = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -33,16 +33,21 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
   // Assuming currentUser is available in scope or imported
-  const isAdmin =
-    currentUser && ADMIN_ROLES.includes(currentUser.emp_designation);
+  const empDesignation = currentUser?.emp_designation || "";
+  const isL1Admin = ADMIN_ROLES.includes(empDesignation);
+  const isSuperAdmin = SUPER_ADMIN_ROLES.includes(empDesignation);
+  // "Admin" for layout purposes includes both
+  const isManagement = isL1Admin || isSuperAdmin;
+
   const dispatch = useAppDispatch();
 
   // Force refetch on mount or when args change to avoid stale data
+  // If Management, fetch all tasks (no user_id). If regular user, fetch ONLY their tasks.
   const { data: taskData } = useTaskListQuery(
-    { ...(!isAdmin && { user_id: currentUser?.emp_id }) },
+    { ...(!isManagement && { user_id: currentUser?.emp_id }) },
     {
       refetchOnMountOrArgChange: true,
-      skip: !currentUser && !isAdmin, // Wait until we know who the user is
+      skip: !currentUser, // Wait until we know who the user is
     }
   );
 
@@ -56,14 +61,14 @@ const Dashboard: React.FC = () => {
   }, [taskData, dispatch]);
 
   useEffect(() => {
-    if (isAdmin) {
-      getUserList({})
+    if (isManagement) {
+      getUserList({ user_id: currentUser?.emp_id })
         .unwrap()
         .then((resp) => {
           dispatch(addDeveloper(resp));
         });
     }
-  }, [currentUser, isAdmin, getUserList, dispatch]);
+  }, [currentUser, isManagement, getUserList, dispatch]);
   const handleCreateTask = () => {
     setEditTask(null);
     onOpen();
@@ -77,7 +82,7 @@ const Dashboard: React.FC = () => {
   return (
     <SimpleLayout>
       <Container maxW="container.xl" py={8}>
-        {isAdmin ? (
+        {isManagement ? (
           // Admin View: Timeline Only (Task Listing on separate page)
           <Box>
             <Box mb={6}>

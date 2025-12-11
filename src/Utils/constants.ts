@@ -3,44 +3,38 @@ export const BASE_URL = import.meta.env.VITE_APP_BASE_URL ?? "";
 
 export const HEADER_HEIGHT = "3.6rem";
 
-export const ADMIN_ROLES = ["admin", "product"];
-export const SUPER_ADMIN_ROLES = ["superadmin", "owner"];
-
-export const DUMMY_USERS = [
-    {
-        id: 1,
-        emp_id: "admin",
-        emp_name: "Super Admin",
-        emp_designation: "admin",
-        emp_email: "admin@example.com",
-        emp_department: "Management",
-        emp_hierarchy: "Admin"
-    },
-    {
-        id: 2,
-        emp_id: "d1",
-        emp_name: "Alice",
-        emp_designation: "developer",
-        emp_email: "alice@example.com",
-        emp_department: "Frontend",
-        emp_hierarchy: "Senior"
-    },
-    {
-        id: 3,
-        emp_id: "d2",
-        emp_name: "Bob",
-        emp_designation: "developer",
-        emp_email: "bob@example.com",
-        emp_department: "Backend",
-        emp_hierarchy: "Mid"
-    },
-    {
-        id: 4,
-        emp_id: "d3",
-        emp_name: "Charlie",
-        emp_designation: "developer",
-        emp_email: "charlie@example.com",
-        emp_department: "DevOps",
-        emp_hierarchy: "Junior"
-    },
+export const DESIGNATIONS = [
+    "ASE",
+    "SE1",
+    "SE2",
+    "SSE",
+    "TL",
+    "L1",
+    "L2",
+    "EM",
+    "CTO",
+    "PRODUCT",
 ];
+
+export const ROLE_RANK: Record<string, number> = {
+    "ASE": 1, "ase": 1,
+    "SE1": 1, "se1": 1,
+    "SE2": 1, "se2": 1,
+    "SSE": 1, "sse": 1,
+    "TL": 1, "tl": 1,
+    "L1": 2, "l1": 2,
+    "L2": 3, "l2": 3,
+    "EM": 4, "em": 4,
+    "CTO": 5, "cto": 5,
+    "PRODUCT": 5, "product": 5,
+    "OWNER": 5, "owner": 5,
+    "SUPERADMIN": 5, "superadmin": 5,
+    "admin": 2, // L1 equivalent
+    "developer": 1,
+};
+
+// L1 has access to members under them (ASE, SE1, SE2, SSE)
+export const ADMIN_ROLES = ["L1"];
+
+// L2, EM, CTO have access to all data
+export const SUPER_ADMIN_ROLES = ["L2", "EM", "CTO", "PRODUCT"];

@@ -28,7 +28,7 @@ import {
   useCreateTaskMutation,
   useUpdateTaskMutation,
 } from "Services/user.api";
-import { ADMIN_ROLES } from "Utils/constants";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES } from "Utils/constants";
 
 interface TaskCreationModalProps {
   isOpen: boolean;
@@ -63,7 +63,9 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
   const [assigneeId, setAssigneeId] = useState("");
 
   const isAdmin =
-    currentUser && ADMIN_ROLES.includes(currentUser.emp_designation);
+    currentUser &&
+    (ADMIN_ROLES.includes(currentUser.emp_designation) ||
+      SUPER_ADMIN_ROLES.includes(currentUser.emp_designation));
 
   useEffect(() => {
     if (editTaskData) {
