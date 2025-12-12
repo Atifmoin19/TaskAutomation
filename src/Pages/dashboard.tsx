@@ -12,6 +12,7 @@ import {
   BreadcrumbLink,
   VStack,
   HStack,
+  Select,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 
@@ -60,6 +61,27 @@ const Dashboard: React.FC = () => {
     }
   }, [taskData, dispatch]);
 
+  const allDevelopers = useAppSelector((state) => state.scheduler.developers);
+  const [selectedManagerId, setSelectedManagerId] = useState("");
+
+  const managerList = React.useMemo(() => {
+    // Filter for ranks L1, L2, EM, CTO etc (Rank > 1)
+    return allDevelopers.filter((d) => {
+      // Need to ensure ROLE_RANK is imported or available.
+      // It is not imported in Dashboard currently. I need to add import.
+      // Assuming import is handled in next chunk or I add it now.
+      return [
+        "L1",
+        "L2",
+        "EM",
+        "CTO",
+        "PRODUCT",
+        "OWNER",
+        "SUPERADMIN",
+      ].includes(d.emp_designation);
+    });
+  }, [allDevelopers]);
+
   useEffect(() => {
     if (isManagement) {
       getUserList({ user_id: currentUser?.emp_id })
@@ -94,9 +116,26 @@ const Dashboard: React.FC = () => {
             </Box>
             <Flex justify="space-between" align="center" mb={6}>
               <Box>
-                <Heading size="lg" color="gray.700">
-                  Timeline
-                </Heading>
+                <HStack spacing={4} mb={1}>
+                  <Heading size="lg" color="gray.700">
+                    Team View
+                  </Heading>
+                  <Select
+                    placeholder="All Members"
+                    w="200px"
+                    size="sm"
+                    borderRadius="md"
+                    bg="white"
+                    value={selectedManagerId}
+                    onChange={(e) => setSelectedManagerId(e.target.value)}
+                  >
+                    {managerList.map((mgr) => (
+                      <option key={mgr.emp_id} value={mgr.emp_id}>
+                        {mgr.emp_name} ({mgr.emp_designation})
+                      </option>
+                    ))}
+                  </Select>
+                </HStack>
                 <Text color="gray.500">View developer schedules</Text>
               </Box>
               <HStack spacing={4}>
@@ -120,7 +159,10 @@ const Dashboard: React.FC = () => {
                 </Button>
               </HStack>
             </Flex>
-            <TimelineView onEditTask={handleEditTask} />
+            <TimelineView
+              onEditTask={handleEditTask}
+              filteredManagerId={selectedManagerId}
+            />
           </Box>
         ) : (
           // Developer View: Stacked Timeline + Task List

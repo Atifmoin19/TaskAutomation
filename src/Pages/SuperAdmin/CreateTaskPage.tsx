@@ -22,16 +22,32 @@ import {
   useToast,
   SimpleGrid,
   GridItem,
+  Icon,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  IconButton,
 } from "@chakra-ui/react";
 import SimpleLayout from "Layouts/simpleLayout";
 import {
   useCreateTaskMutation,
   useUploadTasksMutation,
+  useUserListQuery,
 } from "Services/user.api";
 import { useAppDispatch, useAppSelector } from "app/hooks";
 import { addTask } from "app/slices/scheduler.slice";
-import { Priority, Task } from "types";
+import { Priority, Employee } from "types";
 import { ROLE_RANK } from "Utils/constants";
+import {
+  FaCloudUploadAlt,
+  FaFileCsv,
+  FaDownload,
+  FaTimes,
+} from "react-icons/fa";
+import sampleCsv from "assets/sample_user_creation.csv?url";
 
 const CreateTaskPage: React.FC = () => {
   const [createTask] = useCreateTaskMutation();
@@ -40,6 +56,16 @@ const CreateTaskPage: React.FC = () => {
   const toast = useToast();
   const allTasks = useAppSelector((state) => state.scheduler.tasks);
   const developers = useAppSelector((state) => state.scheduler.developers);
+  const currentUser = useAppSelector((state) => state.scheduler.currentUser);
+
+  // Fetch users specifically for the dropdown (reportees/team members)
+  const { data: apiDevelopers } = useUserListQuery(
+    { user_id: currentUser?.emp_id },
+    { skip: !currentUser?.emp_id, refetchOnMountOrArgChange: true }
+  );
+
+  const potentialAssignees = apiDevelopers || developers;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Single Task State
@@ -52,6 +78,47 @@ const CreateTaskPage: React.FC = () => {
 
   // Bulk State
   const [file, setFile] = useState<File | null>(null);
+  const [csvPreview, setCsvPreview] = useState<string[][] | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+
+      // Check file size (4MB)
+      if (selectedFile.size > 4 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "File size must be less than 4MB",
+          status: "error",
+          duration: 3000,
+        });
+        return;
+      }
+
+      setFile(selectedFile);
+
+      // Simple CSV Preview Parser
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        const lines = text
+          .split("\n")
+          .map((line) => line.split(","))
+          .filter((row) => row.some((cell) => cell.trim() !== ""));
+        setCsvPreview(lines.slice(0, 6)); // Header + 5 rows
+      };
+      reader.readAsText(selectedFile);
+    }
+  };
+
+  const handleClearFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFile(null);
+    setCsvPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSingleSubmit = async () => {
     if (!title || !assigneeId) {
@@ -59,8 +126,7 @@ const CreateTaskPage: React.FC = () => {
       return;
     }
 
-    const newTask: Task = {
-      id: Math.random().toString(36).substr(2, 9),
+    const newTask = {
       task_name: title,
       task_description: description,
       task_duration: String(duration),
@@ -72,7 +138,9 @@ const CreateTaskPage: React.FC = () => {
 
     const resp = await createTask(newTask);
     if (resp?.data) {
-      dispatch(addTask([...allTasks, newTask]));
+      if (resp.data.id) {
+        dispatch(addTask([...allTasks, resp.data]));
+      }
       toast({ title: "Task Created Successfully", status: "success" });
       // Reset form
       setTitle("");
@@ -99,6 +167,7 @@ const CreateTaskPage: React.FC = () => {
       await uploadTasks(formData).unwrap();
       toast({ title: "Tasks Uploaded Successfully", status: "success" });
       setFile(null);
+      setCsvPreview(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -208,12 +277,13 @@ const CreateTaskPage: React.FC = () => {
                       onChange={(e) => setAssigneeId(e.target.value)}
                       placeholder="Select User"
                     >
-                      {developers
+                      {potentialAssignees
                         ?.filter(
-                          (dev) => (ROLE_RANK[dev.emp_designation] || 0) < 4
+                          (dev: Employee) =>
+                            (ROLE_RANK[dev.emp_designation] || 0) < 4
                         )
-                        .map((dev) => (
-                          <option key={dev.id} value={dev.emp_id}>
+                        .map((dev: any) => (
+                          <option key={dev.id || dev.emp_id} value={dev.emp_id}>
                             {dev.emp_name} ({dev.emp_designation})
                           </option>
                         ))}
@@ -233,39 +303,187 @@ const CreateTaskPage: React.FC = () => {
               </Box>
             </TabPanel>
             <TabPanel>
-              <Box
-                bg="white"
-                p={6}
-                borderRadius="md"
-                shadow="sm"
-                textAlign="center"
-              >
-                <Heading size="md" mb={4} color="gray.600">
-                  CSV Bulk Upload
-                </Heading>
-                <Input
-                  type="file"
-                  p={1}
-                  mb={4}
-                  accept=".csv"
-                  ref={fileInputRef}
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      setFile(e.target.files[0]);
-                    }
-                  }}
-                />
-                <Button
-                  colorScheme="green"
-                  onClick={handleBulkUpload}
-                  isLoading={isUploading}
+              <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
+                {/* Left Side - 70% */}
+                <Box
+                  gridColumn={{ md: "span 2" }}
+                  bg="white"
+                  p={6}
+                  borderRadius="xl"
+                  border="1px solid"
+                  borderColor="gray.100"
+                  boxShadow="sm"
                 >
-                  Upload CSV
-                </Button>
-                <Box mt={4} color="gray.500" fontSize="sm">
-                  <p>Upload a CSV file containing task details.</p>
+                  <Heading size="md" mb={6} color="gray.700">
+                    Upload CSV
+                  </Heading>
+
+                  <Box
+                    border="2px dashed"
+                    borderColor={file ? "green.300" : "gray.300"}
+                    borderRadius="lg"
+                    bg={file ? "green.50" : "gray.50"}
+                    p={8}
+                    textAlign="center"
+                    transition="all 0.2s"
+                    _hover={{ borderColor: "green.400", bg: "gray.100" }}
+                    position="relative"
+                  >
+                    {file && (
+                      <IconButton
+                        aria-label="Clear file"
+                        icon={<FaTimes />}
+                        size="sm"
+                        position="absolute"
+                        top={2}
+                        right={2}
+                        colorScheme="red"
+                        variant="ghost"
+                        onClick={handleClearFile}
+                        zIndex={2}
+                      />
+                    )}
+                    <Icon
+                      as={file ? FaFileCsv : FaCloudUploadAlt}
+                      w={12}
+                      h={12}
+                      color={file ? "green.500" : "gray.400"}
+                      mb={4}
+                    />
+                    <Box>
+                      <Button
+                        onClick={() => fileInputRef.current?.click()}
+                        colorScheme="blue"
+                        variant="outline"
+                        size="sm"
+                        mb={2}
+                      >
+                        {file ? "Change File" : "Select File"}
+                      </Button>
+                      <Input
+                        type="file"
+                        accept=".csv"
+                        ref={fileInputRef}
+                        display="none"
+                        onChange={handleFileChange}
+                      />
+                      <Box fontSize="sm" color="gray.500">
+                        {file ? file.name : "Drag and drop or click to upload"}
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* Preview Section */}
+                  {csvPreview && (
+                    <Box mt={6} overflowX="auto">
+                      <Heading size="sm" mb={4} color="gray.600">
+                        File Preview
+                      </Heading>
+                      <Table variant="simple" size="sm">
+                        <Thead bg="gray.50">
+                          <Tr>
+                            {csvPreview[0]?.map((header, idx) => (
+                              <Th key={idx}>{header}</Th>
+                            ))}
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {csvPreview.slice(1).map((row, rowIdx) => (
+                            <Tr key={rowIdx}>
+                              {row.map((cell, cellIdx) => (
+                                <Td key={cellIdx}>{cell}</Td>
+                              ))}
+                            </Tr>
+                          ))}
+                        </Tbody>
+                      </Table>
+                    </Box>
+                  )}
+
+                  <Button
+                    mt={6}
+                    colorScheme="green"
+                    onClick={handleBulkUpload}
+                    isLoading={isUploading}
+                    isDisabled={!file}
+                    width="full"
+                    leftIcon={<FaCloudUploadAlt />}
+                  >
+                    Upload Tasks
+                  </Button>
                 </Box>
-              </Box>
+
+                {/* Right Side - 30% */}
+                <Box>
+                  <Box
+                    bg="blue.50"
+                    p={6}
+                    borderRadius="xl"
+                    border="1px solid"
+                    borderColor="blue.100"
+                    mb={6}
+                  >
+                    <Heading size="sm" mb={4} color="blue.700">
+                      Instructions
+                    </Heading>
+                    <SimpleGrid spacing={3}>
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Box
+                          as="span"
+                          w="6px"
+                          h="6px"
+                          borderRadius="full"
+                          bg="blue.400"
+                        />
+                        <Box fontSize="sm" color="blue.600">
+                          File must be in .csv format
+                        </Box>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Box
+                          as="span"
+                          w="6px"
+                          h="6px"
+                          borderRadius="full"
+                          bg="blue.400"
+                        />
+                        <Box fontSize="sm" color="blue.600">
+                          Max file size: 4MB
+                        </Box>
+                      </Box>
+                    </SimpleGrid>
+                  </Box>
+
+                  <Box
+                    bg="white"
+                    p={6}
+                    borderRadius="xl"
+                    border="1px solid"
+                    borderColor="gray.200"
+                    textAlign="center"
+                  >
+                    <Icon as={FaFileCsv} w={8} h={8} color="green.500" mb={3} />
+                    <Heading size="xs" mb={2} color="gray.700">
+                      Need a template?
+                    </Heading>
+                    <Box fontSize="xs" color="gray.500" mb={4}>
+                      Download the sample CSV file to ensure your data is
+                      formatted correctly.
+                    </Box>
+                    <Button
+                      as="a"
+                      href={sampleCsv}
+                      download="sample_task_creation.csv"
+                      size="sm"
+                      width="full"
+                      colorScheme="gray"
+                      leftIcon={<FaDownload />}
+                    >
+                      Download Sample
+                    </Button>
+                  </Box>
+                </Box>
+              </SimpleGrid>
             </TabPanel>
           </TabPanels>
         </Tabs>

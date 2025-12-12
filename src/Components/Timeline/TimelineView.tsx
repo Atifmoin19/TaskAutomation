@@ -37,9 +37,13 @@ import { UserHierarchyPopover } from "Components/UserHierarchyPopover";
 
 interface TimelineViewProps {
   onEditTask: (task: Task) => void;
+  filteredManagerId?: string;
 }
 
-const TimelineView: React.FC<TimelineViewProps> = ({ onEditTask }) => {
+const TimelineView: React.FC<TimelineViewProps> = ({
+  onEditTask,
+  filteredManagerId,
+}) => {
   const {
     config,
     developers: allDevelopers,
@@ -63,6 +67,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({ onEditTask }) => {
       (d) => (ROLE_RANK[d.emp_designation] || 0) < 4
     );
 
+    // If filter is active, show only reportees of that manager
+    if (filteredManagerId) {
+      return assignableDevs.filter((d) => d.manager_id === filteredManagerId);
+    }
+
     if (isSuperAdmin) return assignableDevs;
 
     if (isAdmin) {
@@ -75,7 +84,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ onEditTask }) => {
 
     // Regular user
     return assignableDevs.filter((d) => d.emp_id === currentUser.emp_id);
-  }, [allDevelopers, currentUser]);
+  }, [allDevelopers, currentUser, filteredManagerId]);
 
   // Default date logic: If now > EndHour, show Tomorrow.
   const [currentDate, setCurrentDate] = useState(() => {

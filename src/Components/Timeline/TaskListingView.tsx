@@ -19,9 +19,13 @@ import { UserHierarchyPopover } from "Components/UserHierarchyPopover";
 
 interface TaskListingViewProps {
   onEditTask: (task: Task) => void;
+  filteredManagerId?: string;
 }
 
-const TaskListingView: React.FC<TaskListingViewProps> = ({ onEditTask }) => {
+const TaskListingView: React.FC<TaskListingViewProps> = ({
+  onEditTask,
+  filteredManagerId,
+}) => {
   const {
     tasks: allTasks,
     developers,
@@ -46,10 +50,16 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({ onEditTask }) => {
     return filteredTasks?.filter((t) => {
       const assignee = developers.find((d) => d.emp_id === t.task_assigned_to);
       if (!assignee) return true; // Show unassigned or unknown users
+
+      // Filter by Manager ID if provided
+      if (filteredManagerId && assignee.manager_id !== filteredManagerId) {
+        return false;
+      }
+
       const rank = ROLE_RANK[assignee.emp_designation] || 0;
       return rank < 4;
     });
-  }, [allTasks, currentUser, developers]);
+  }, [allTasks, currentUser, developers, filteredManagerId]);
   const bg = useColorModeValue("white", "gray.800");
   const getAssignee = (id?: string) => developers.find((d) => d.emp_id === id);
 

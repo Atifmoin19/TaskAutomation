@@ -1,0 +1,2 @@
+id,emp_name,emp_id,emp_email,emp_phone,emp_designation,emp_department,emp_hierarchy,manager_id
+1,Atif Moin,S00218,atif.moin@zopper.com,7007136187,SE1,FE,EMPLOYEE,S00148

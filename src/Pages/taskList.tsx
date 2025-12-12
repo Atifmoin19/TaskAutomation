@@ -8,6 +8,8 @@ import {
   Heading,
   Button,
   Flex,
+  HStack,
+  Select,
 } from "@chakra-ui/react";
 import TaskListingView from "Components/Timeline/TaskListingView";
 import SimpleLayout from "Layouts/simpleLayout";
@@ -59,6 +61,23 @@ const TaskListPage: React.FC = () => {
     }
   }, [currentUser, getUserList, dispatch]);
 
+  const allDevelopers = useAppSelector((state) => state.scheduler.developers);
+  const [selectedManagerId, setSelectedManagerId] = useState("");
+
+  const managerList = React.useMemo(() => {
+    return allDevelopers.filter((d) => {
+      return [
+        "L1",
+        "L2",
+        "EM",
+        "CTO",
+        "PRODUCT",
+        "OWNER",
+        "SUPERADMIN",
+      ].includes(d.emp_designation);
+    });
+  }, [allDevelopers]);
+
   const handleEditTask = (task: Task) => {
     setEditTask(task);
     onOpen();
@@ -82,6 +101,27 @@ const TaskListPage: React.FC = () => {
             <Heading size="lg" mt={2} color="gray.700">
               Task List
             </Heading>
+            {isAdmin && (
+              <Box mt={2}>
+                <HStack>
+                  <Select
+                    placeholder="All Members"
+                    w="200px"
+                    size="sm"
+                    borderRadius="md"
+                    bg="white"
+                    value={selectedManagerId}
+                    onChange={(e) => setSelectedManagerId(e.target.value)}
+                  >
+                    {managerList.map((mgr) => (
+                      <option key={mgr.emp_id} value={mgr.emp_id}>
+                        {mgr.emp_name} ({mgr.emp_designation})
+                      </option>
+                    ))}
+                  </Select>
+                </HStack>
+              </Box>
+            )}
           </Box>
           {isAdmin && (
             <Button
@@ -95,7 +135,10 @@ const TaskListPage: React.FC = () => {
           )}
         </Flex>
 
-        <TaskListingView onEditTask={handleEditTask} />
+        <TaskListingView
+          onEditTask={handleEditTask}
+          filteredManagerId={selectedManagerId}
+        />
 
         <TaskCreationModal
           isOpen={isOpen}
