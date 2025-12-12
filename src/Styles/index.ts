@@ -1,6 +1,31 @@
 import { extendTheme } from "@chakra-ui/react";
 
 export const theme = extendTheme({
+  components: {
+    Alert: {
+      baseStyle: {
+        container: {
+          borderRadius: "10px",
+          fontSize: "14px",
+        },
+      },
+      variants: {
+        customSuccess: {
+          container: {
+            bg: "#E6F7EC", // light green background
+            border: "1px solid #18A662", // green border
+            color: "#18A662", // green text/icons
+            borderRadius: "12px",
+            padding: "12px 3rem 12px 16px",
+            boxShadow: "none",
+          },
+          icon: {
+            color: "#18A662", // green check icon
+          },
+        },
+      },
+    },
+  },
   colors: {
     primary: {
       "10": "#e1f5fe",

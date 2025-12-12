@@ -11,8 +11,6 @@ export function useForceUpdate() {
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 export { useWindowDimensions } from "./useWindowDimention";
-export { useVehicleType, useVehicleTypeAddons } from "./useVehicleType";
-export { useVahanData } from "./useVahanData";
 export { useDeviceType } from "./useDeviceType";
 export type { IUseDeviceType } from "./useDeviceType";
 export { useTimer } from "./useTimer";
