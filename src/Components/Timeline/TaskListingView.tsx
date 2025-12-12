@@ -8,7 +8,6 @@ import {
   Td,
   Badge,
   Box,
-  useColorModeValue,
   Text,
   Avatar,
 } from "@chakra-ui/react";
@@ -60,7 +59,6 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({
       return rank < 4;
     });
   }, [allTasks, currentUser, developers, filteredManagerId]);
-  const bg = useColorModeValue("white", "gray.800");
   const getAssignee = (id?: string) => developers.find((d) => d.emp_id === id);
 
   const getPriorityColor = (p: string) => {
@@ -77,16 +75,28 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({
   };
 
   return (
-    <Box bg={bg} borderRadius="xl" boxShadow="sm" overflowX="auto">
-      <Table variant="simple">
-        <Thead>
+    <Box
+      bg="rgba(255, 255, 255, 0.70)"
+      backdropFilter="blur(20px)"
+      border="1px solid rgba(255, 255, 255, 0.4)"
+      borderRadius="2xl"
+      boxShadow="0 8px 32px 0 rgba(31, 38, 135, 0.15)"
+      overflowX="auto"
+      p={4}
+    >
+      <Table variant="unstyled">
+        <Thead bg="rgba(0,0,0,0.05)" borderRadius="md">
           <Tr>
-            <Th>Task</Th>
-            <Th>Priority</Th>
-            <Th>Assignee</Th>
-            <Th>Duration</Th>
-            <Th>Status</Th>
-            <Th>Created At</Th>
+            <Th py={4} borderTopLeftRadius="md" borderBottomLeftRadius="md">
+              Task
+            </Th>
+            <Th py={4}>Priority</Th>
+            <Th py={4}>Assignee</Th>
+            <Th py={4}>Duration</Th>
+            <Th py={4}>Status</Th>
+            <Th py={4} borderTopRightRadius="md" borderBottomRightRadius="md">
+              Created At
+            </Th>
           </Tr>
         </Thead>
         <Tbody>
@@ -95,10 +105,20 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({
             return (
               <Tr
                 key={task.id}
-                _hover={{ bg: "gray.50", cursor: "pointer" }}
+                borderBottom="1px solid rgba(0,0,0,0.05)"
+                transition="all 0.2s ease"
+                _hover={{
+                  bg: "rgba(255,255,255,0.9)",
+                  transform: "scale(1.005)",
+                  boxShadow: "lg",
+                  cursor: "pointer",
+                  borderRadius: "md",
+                }}
                 onClick={() => onEditTask(task)}
               >
-                <Td fontWeight="bold">{task.task_name}</Td>
+                <Td fontWeight="bold" py={4}>
+                  {task.task_name}
+                </Td>
                 <Td>
                   <Badge
                     colorScheme={getPriorityColor(task.task_priority as string)}

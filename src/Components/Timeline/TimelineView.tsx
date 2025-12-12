@@ -171,9 +171,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({
   return (
     <Box
       p={6}
-      bg={useColorModeValue("white", "gray.800")}
-      borderRadius="xl"
-      boxShadow="xl"
+      bg="rgba(255, 255, 255, 0.70)" // Increased opacity for better contrast
+      backdropFilter="blur(20px)"
+      border="1px solid rgba(255, 255, 255, 0.4)"
+      borderRadius="2xl" // Softer corners
+      boxShadow="0 8px 32px 0 rgba(31, 38, 135, 0.15)"
       overflow="hidden"
     >
       <Flex justify="space-between" align="center" mb={6}>
@@ -312,16 +314,26 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                               width
                             )}%`}
                             height="80%"
-                            top="10%"
-                            bg={colors.bg}
-                            borderLeft="4px solid"
-                            borderColor={colors.border}
-                            borderRadius="sm"
+                            top="15%" // centered vertically in row
+                            h="70%" // Slightly smaller height for floating look
+                            bgGradient={`linear(to-r, ${colors.bg}, ${colors.hover})`} // Dynamic Gradient
+                            border="1px solid rgba(255,255,255,0.5)"
+                            boxShadow="md"
+                            borderRadius="lg"
                             cursor="pointer"
-                            _hover={{ bg: colors.hover }}
-                            px={2}
+                            transition="all 0.2s"
+                            _hover={{
+                              transform: "scale(1.05)",
+                              zIndex: 10,
+                              boxShadow: "xl",
+                              bgGradient: `linear(to-r, ${colors.hover}, ${colors.bg})`,
+                            }}
+                            px={3}
                             py={1}
-                            // onClick={() => onEditTask(task)} // Removed direct click
+                            display="flex"
+                            alignItems="center"
+                            gap={2}
+                            // onClick={() => onEditTask(task)}
                           >
                             <Text fontSize="xs" fontWeight="bold" noOfLines={1}>
                               {task.task_name}

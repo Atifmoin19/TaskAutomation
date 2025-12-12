@@ -40,7 +40,7 @@ const SimpleLayout: React.FC<ISimpleLayout> = (props) => {
           w={"100%"}
           direction="column"
           marginTop={HEADER_HEIGHT}
-          bg={"#f7fafc"}
+          bgGradient="linear(to-br, gray.50, blue.50, purple.50)"
           minH="calc(100vh - 60px)"
         >
           {children}
