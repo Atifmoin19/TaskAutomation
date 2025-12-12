@@ -18,10 +18,8 @@ import { useNavigate } from "react-router-dom";
 import { useLoginMutation, useRegisterMutation } from "Services/user.api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Image, Flex } from "@chakra-ui/react";
-import taskboardImg from "assets/taskboard.png"; // Assuming alias or path works, otherwise relative
-// If alias 'assets' doesn't exist, I need relative path: ../assets/taskboard.png?
-// Checking file structure: src/assets/taskboard.png. Pages/login.tsx is in src/Pages. So ../assets/taskboard.png.
-// Actually, webpack/vite alias 'assets' might not be set. Safe to use relative or absolute if supported.
+import taskboardImg from "assets/loginIlustration.webp"; // Assuming alias or path works, otherwise relative
+
 // Using default import for image.
 
 const MotionFlex = motion(Flex);
@@ -108,36 +106,129 @@ const Login: React.FC = () => {
 
   return (
     <SimpleLayout>
-      <Container maxW="container.lg" py={10} centerContent>
+      <Container
+        maxW="container.lg"
+        py={10}
+        centerContent
+        position="relative"
+        zIndex={10}
+      >
         <MotionFlex
           w={{ base: "100%", md: "900px" }}
           h="600px"
-          bg="white"
+          bg="rgba(255, 255, 255, 0.2)" // Glass background
+          backdropFilter="blur(16px)" // Blur effect
+          border="1px solid rgba(255, 255, 255, 0.3)" // Glass border
           borderRadius="xl"
-          boxShadow="2xl"
+          boxShadow="0 8px 32px 0 rgba(31, 38, 135, 0.37)" // Deep shadow
           overflow="hidden"
           layout
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
-          flexDirection={isSignup ? "row-reverse" : "row"} // This swaps the sides
+          flexDirection={isSignup ? "row-reverse" : "row"}
+          position="relative" // Ensure positioning context for orbs
         >
+          {/* Dynamic Background Orbs INSIDE the Card */}
+          <Box
+            position="absolute"
+            top="0"
+            left="0"
+            w="100%"
+            h="100%"
+            zIndex="0"
+            pointerEvents="none"
+          >
+            {/* Orb 1: Blue - Top Left */}
+            <MotionBox
+              position="absolute"
+              top="-10%"
+              left="-5%"
+              w="400px"
+              h="400px"
+              borderRadius="full"
+              bg="radial-gradient(circle at 30% 30%, rgba(99, 179, 237, 0.4), rgba(49, 130, 206, 0.1))"
+              filter="blur(40px)"
+              animate={{
+                x: [0, 50, 0],
+                y: [0, 30, 0],
+                scale: [1, 1.1, 1],
+              }}
+              transition={{
+                duration: 15,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
+            />
+
+            {/* Orb 2: Purple - Bottom Right */}
+            <MotionBox
+              position="absolute"
+              bottom="-10%"
+              right="-10%"
+              w="500px"
+              h="500px"
+              borderRadius="full"
+              bg="radial-gradient(circle at 70% 70%, rgba(159, 122, 234, 0.4), rgba(128, 90, 213, 0.1))"
+              filter="blur(50px)"
+              animate={{
+                x: [0, -40, 0],
+                y: [0, -60, 0],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 20,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
+            />
+
+            {/* Orb 3: Cyan - Top Rightish */}
+            <MotionBox
+              position="absolute"
+              top="20%"
+              right="10%"
+              w="300px"
+              h="300px"
+              borderRadius="full"
+              bg="radial-gradient(circle at 50% 50%, rgba(56, 178, 172, 0.3), rgba(49, 151, 149, 0.1))"
+              filter="blur(30px)"
+              animate={{
+                x: [0, 30, 0],
+                y: [0, 50, 0],
+                scale: [1, 0.9, 1],
+              }}
+              transition={{
+                duration: 18,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
+            />
+          </Box>
+
           {/* Image Section */}
-          <MotionBox layout w="50%" h="100%" position="relative" bg="gray.100">
+          <MotionBox
+            layout
+            w="50%"
+            h="100%"
+            position="relative"
+            bg="gray.100"
+            zIndex={1}
+          >
             <Image
               src={taskboardImg}
               alt="Taskboard Illustration"
-              objectFit="cover"
+              objectFit="contain"
               w="100%"
               h="100%"
             />
             {/* Overlay for Futuristic feel */}
-            <Box
+            {/* <Box
               position="absolute"
               top={0}
               left={0}
               w="100%"
               h="100%"
               bgGradient="linear(to-b, transparent 0%, rgba(0,0,0,0.4) 100%)"
-            />
+            /> */}
           </MotionBox>
 
           {/* Form Section */}
@@ -145,11 +236,13 @@ const Login: React.FC = () => {
             layout
             w="50%"
             h="100%"
-            bg="white"
+            bg="rgba(255, 255, 255, 0.65)" // Semi-transparent for readability
+            backdropFilter="blur(8px)"
             p={10}
             display="flex"
             flexDirection="column"
             justifyContent="center"
+            zIndex={1}
           >
             <AnimatePresence mode="wait">
               {/* Using key to trigger internal form animation if desired, or just keep same form instance */}
