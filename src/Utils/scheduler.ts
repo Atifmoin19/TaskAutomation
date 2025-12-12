@@ -24,7 +24,7 @@ export const calculateSchedule = (
     // Group tasks by developer
     const devTasks: Record<string, Task[]> = {};
     tasks?.forEach(task => {
-        if (task.task_status === "done") return; // Existing logic: don't schedule done tasks?
+        // if (task.task_status === "done") return; // Allow done tasks to be scheduled so they appear in timeline
         // Note: If we want to show Done tasks in the past, we should include them differently.
         // User request focuses on "not being coklpeted", so we focus on pending tasks.
         if (task.task_assigned_to) {
@@ -144,7 +144,7 @@ export const calculateSchedule = (
                     // But wait, the component might be *partially* done? 
                     // Simpler view: If the task *should* be finished by 11:00 but it's 11:15, extend to 11:15.
 
-                    if (projectedEnd < currentRealTimeHour) {
+                    if (task.task_status !== "done" && projectedEnd < currentRealTimeHour) {
                         // We extend the chunk to cover up to RealTime
                         // But we must respect EndHour. 
                         const extendedEnd = Math.min(currentRealTimeHour, config.endHour);
@@ -181,7 +181,7 @@ export const calculateSchedule = (
                 let endTime = startTime + chunk; // Nominal end
 
                 // Apply Extension to End Time
-                if (processingDateStr === currentRealDateStr && endTime < currentRealTimeHour) {
+                if (task.task_status !== "done" && processingDateStr === currentRealDateStr && endTime < currentRealTimeHour) {
                     // Extend to Now
                     endTime = Math.min(currentRealTimeHour, config.endHour);
                     // Consumed time is (endTime - startTime)

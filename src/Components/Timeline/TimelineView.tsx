@@ -143,14 +143,29 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     setCurrentDate(prev);
   };
 
-  const handleCompleteTask = async (task: Task) => {
+  const handleCompleteTask = async (task: Task, scheduledStartTime: number) => {
     try {
-      const updatedTask = { ...task, task_status: "done" };
+      const now = new Date();
+      const currentHour = now.getHours() + now.getMinutes() / 60;
+
+      // Calculate actual duration based on when it was finished vs when it started
+      // Max with 0.1 to avoid zero/negative duration
+      let newDuration = Math.max(0.1, currentHour - scheduledStartTime);
+
+      // Round to 2 decimal places
+      newDuration = Math.round(newDuration * 100) / 100;
+
+      const updatedTask = {
+        ...task,
+        task_status: "done",
+        task_duration: newDuration.toString(), // Update duration to reflect actual time taken
+      };
+
       await updateTaskApi(updatedTask).unwrap();
       dispatch(updateTask(updatedTask));
       toast({
         title: "Task Completed",
-        description: `${task.task_name} marked as done. Schedule updated.`,
+        description: `${task.task_name} marked as done. Duration updated to ${newDuration}hrs.`,
         status: "success",
         duration: 3000,
         isClosable: true,
@@ -265,31 +280,45 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
                     if (left + width < 0 || left > 100) return null; // out of view
 
+                    const isCompleted = task.task_status === "done";
+
                     const getTaskColors = (priority?: string) => {
+                      if (isCompleted) {
+                        return {
+                          bg: "gray.300",
+                          border: "gray.500",
+                          hover: "gray.400",
+                          gradient: "linear(to-r, gray.300, gray.400)",
+                        };
+                      }
                       switch (priority) {
                         case "P0":
                           return {
                             bg: "red.100",
                             border: "red.500",
                             hover: "red.200",
+                            gradient: "linear(to-r, red.100, red.200)",
                           };
                         case "P1":
                           return {
                             bg: "orange.100",
                             border: "orange.500",
                             hover: "orange.200",
+                            gradient: "linear(to-r, orange.100, orange.200)",
                           };
                         case "P2":
                           return {
                             bg: "green.100",
                             border: "green.500",
                             hover: "green.200",
+                            gradient: "linear(to-r, green.100, green.200)",
                           };
                         default:
                           return {
                             bg: "blue.100",
                             border: "blue.500",
                             hover: "blue.200",
+                            gradient: "linear(to-r, blue.100, blue.200)",
                           };
                       }
                     };
@@ -314,28 +343,43 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                               width
                             )}%`}
                             height="80%"
-                            top="15%" // centered vertically in row
-                            h="70%" // Slightly smaller height for floating look
-                            bgGradient={`linear(to-r, ${colors.bg}, ${colors.hover})`} // Dynamic Gradient
-                            border="1px solid rgba(255,255,255,0.5)"
+                            top="15%"
+                            h="70%"
+                            bgGradient={
+                              colors.gradient ||
+                              `linear(to-r, ${colors.bg}, ${colors.hover})`
+                            }
+                            border="1px solid"
+                            borderColor={colors.border}
                             boxShadow="md"
                             borderRadius="lg"
-                            cursor="pointer"
+                            cursor={isCompleted ? "default" : "pointer"}
+                            opacity={isCompleted ? 0.8 : 1}
                             transition="all 0.2s"
                             _hover={{
-                              transform: "scale(1.05)",
+                              transform: isCompleted ? "none" : "scale(1.05)",
                               zIndex: 10,
                               boxShadow: "xl",
-                              bgGradient: `linear(to-r, ${colors.hover}, ${colors.bg})`,
+                              bgGradient: colors.gradient
+                                ? undefined
+                                : `linear(to-r, ${colors.hover}, ${colors.bg})`,
+                              // For frozen tasks, we might just want to show details, not animate heavily
                             }}
                             px={3}
                             py={1}
                             display="flex"
                             alignItems="center"
                             gap={2}
-                            // onClick={() => onEditTask(task)}
                           >
-                            <Text fontSize="xs" fontWeight="bold" noOfLines={1}>
+                            {isCompleted && (
+                              <Box as={FaCheck} color="gray.600" size="10px" />
+                            )}
+                            <Text
+                              fontSize="xs"
+                              fontWeight="bold"
+                              noOfLines={1}
+                              color={isCompleted ? "gray.600" : "black"}
+                            >
                               {task.task_name}
                             </Text>
                             <Text fontSize="xs" noOfLines={1} color="gray.600">
@@ -488,7 +532,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                     w="50%"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleCompleteTask(task);
+                                      handleCompleteTask(task, block.startTime);
                                     }}
                                   >
                                     Complete
