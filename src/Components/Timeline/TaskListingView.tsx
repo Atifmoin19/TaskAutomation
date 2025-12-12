@@ -59,6 +59,11 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({
       return rank < 4;
     });
   }, [allTasks, currentUser, developers, filteredManagerId]);
+  // Check if user is Rank 1 (Developer)
+  const isRank1 = React.useMemo(() => {
+    return currentUser && (ROLE_RANK[currentUser.emp_designation] || 0) === 1;
+  }, [currentUser]);
+
   const getAssignee = (id?: string) => developers.find((d) => d.emp_id === id);
 
   const getPriorityColor = (p: string) => {
@@ -111,10 +116,10 @@ const TaskListingView: React.FC<TaskListingViewProps> = ({
                   bg: "rgba(255,255,255,0.9)",
                   transform: "scale(1.005)",
                   boxShadow: "lg",
-                  cursor: "pointer",
+                  cursor: isRank1 ? "default" : "pointer",
                   borderRadius: "md",
                 }}
-                onClick={() => onEditTask(task)}
+                onClick={() => !isRank1 && onEditTask(task)}
               >
                 <Td fontWeight="bold" py={4}>
                   {task.task_name}

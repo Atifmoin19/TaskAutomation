@@ -109,6 +109,14 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
 
     if (editTaskData) {
       // Update logic
+      const oldPriority = editTaskData.task_priority as string;
+      const newPriority = priority;
+
+      // Check if priority is upgraded (e.g. P1 -> P0). P0 < P1 string-wise.
+      // If upgraded, we want to treat this task as "Arriving Now" to preempt currently running tasks
+      // without rewriting past history.
+      const isPriorityUpgraded = newPriority < oldPriority;
+
       const updatedTask: Task = {
         ...editTaskData,
         task_name: title,
@@ -117,6 +125,13 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
         task_priority: priority,
         task_status: status,
         task_assigned_to: assigneeId || undefined,
+        // If priority upgraded, reset start time to NOW to force split/insert behavior
+        task_created_at: isPriorityUpgraded
+          ? new Date().toISOString()
+          : editTaskData.task_created_at,
+        task_assigned_date: isPriorityUpgraded
+          ? new Date().toISOString()
+          : editTaskData.task_assigned_date,
       };
 
       const resp = await hitUpdateTask(updatedTask);

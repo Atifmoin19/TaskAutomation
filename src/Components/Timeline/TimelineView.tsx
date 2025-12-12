@@ -86,6 +86,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     return assignableDevs.filter((d) => d.emp_id === currentUser.emp_id);
   }, [allDevelopers, currentUser, filteredManagerId]);
 
+  // Check if user is Rank 1 (Developer)
+  const isRank1 = useMemo(() => {
+    return currentUser && (ROLE_RANK[currentUser.emp_designation] || 0) === 1;
+  }, [currentUser]);
+
   // Default date logic: If now > EndHour, show Tomorrow.
   const [currentDate, setCurrentDate] = useState(() => {
     const now = new Date();
@@ -115,9 +120,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     startOfToday.setHours(0, 0, 0, 0);
 
     // Current Time: Now (for overrun calculation)
-    const now = new Date();
 
-    return calculateSchedule(tasks, developers, config, startOfToday, now);
+    return calculateSchedule(tasks, developers, config, startOfToday);
   }, [tasks, developers, config, tick]);
 
   const timeSlots = useMemo(() => {
@@ -158,7 +162,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({
       const updatedTask = {
         ...task,
         task_status: "done",
-        task_duration: newDuration.toString(), // Update duration to reflect actual time taken
+        // task_duration is kept as original "Planned" duration
+        time_spent: newDuration,
+        completed_at: now.toISOString(),
       };
 
       await updateTaskApi(updatedTask).unwrap();
@@ -220,335 +226,409 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         </Flex>
       </Flex>
 
-      <Box position="relative" overflowX="auto">
-        {/* Header (Time Slots) */}
-        <Flex ml="150px" borderBottom="1px solid" borderColor="gray.200" pb={2}>
-          {timeSlots.map((hour) => (
-            <Box key={hour} flex={1} textAlign="start">
-              <Text fontSize="sm" color="gray.500">
-                {hour > 12 ? hour - 12 : hour} {hour >= 12 ? "PM" : "AM"}
-              </Text>
-            </Box>
-          ))}
-        </Flex>
-
-        {/* Rows */}
-        <VStack align="start" spacing={3}>
-          {developers.map((dev) => (
-            <Box
-              key={dev.id}
-              w="100%"
-              h="60px"
-              display="flex"
-              alignItems="center"
-            >
-              <UserHierarchyPopover user={dev}>
-                <Box
-                  w="150px"
-                  pr={4}
-                  display="flex"
-                  alignItems="center"
-                  gap={2}
-                  cursor="pointer"
-                >
-                  <Avatar size="sm" name={dev.emp_name} src={dev.avatar} />
-                  <Text fontSize="sm" fontWeight="bold" isTruncated>
-                    {dev.emp_name}
-                  </Text>
-                </Box>
-              </UserHierarchyPopover>
+      <Box
+        position="relative"
+        overflowX="auto"
+        mt={4}
+        borderRadius="xl"
+        border="1px solid rgba(255,255,255,0.2)"
+      >
+        <Box minW="1400px">
+          {/* Header (Time Slots) */}
+          <Flex
+            ml="150px"
+            borderBottom="1px solid"
+            borderColor="gray.200"
+            pb={2}
+            position="sticky"
+            top={0}
+            zIndex={20}
+            bg="rgba(255, 255, 255, 0.95)"
+            backdropFilter="blur(10px)"
+            pt={2}
+          >
+            {timeSlots.map((hour) => (
               <Box
+                key={hour}
                 flex={1}
-                position="relative"
-                h="100%"
-                bg="gray.50"
-                borderRadius="md"
+                textAlign="start"
+                borderLeft="1px dashed"
+                borderColor="gray.100"
+                pl={2}
               >
-                {/* Render schedule blocks */}
-                {schedule[dev.emp_id]
-                  ?.filter((block) => block.date === todayStr)
-                  .map((block, idx) => {
-                    const task = tasks.find((t) => t.id === block.taskId);
-                    if (!task) return null;
+                <Text fontSize="sm" color="gray.500" fontWeight="medium">
+                  {hour > 12 ? hour - 12 : hour} {hour >= 12 ? "PM" : "AM"}
+                </Text>
+              </Box>
+            ))}
+            {/* End Hour Label Removed as it is now part of timeSlots */}
+          </Flex>
 
-                    const width =
-                      (block.endTime - block.startTime) *
-                      (100 / (config.endHour - config.startHour));
-                    const left =
-                      (block.startTime - config.startHour) *
-                      (100 / (config.endHour - config.startHour));
+          {/* Rows */}
+          <VStack align="start" spacing={3}>
+            {developers.map((dev) => (
+              <Box
+                key={dev.id}
+                w="100%"
+                h="60px"
+                display="flex"
+                alignItems="center"
+              >
+                <UserHierarchyPopover user={dev}>
+                  <Box
+                    w="150px"
+                    pr={4}
+                    display="flex"
+                    alignItems="center"
+                    gap={2}
+                    cursor="pointer"
+                  >
+                    <Avatar size="sm" name={dev.emp_name} src={dev.avatar} />
+                    <Text fontSize="sm" fontWeight="bold" isTruncated>
+                      {dev.emp_name}
+                    </Text>
+                  </Box>
+                </UserHierarchyPopover>
+                <Box
+                  flex={1}
+                  position="relative"
+                  h="100%"
+                  bg="gray.50"
+                  borderRadius="md"
+                >
+                  {/* Render schedule blocks */}
+                  {schedule[dev.emp_id]
+                    ?.filter((block) => block.date === todayStr)
+                    .map((block, idx) => {
+                      const task = tasks.find((t) => t.id === block.taskId);
+                      if (!task) return null;
 
-                    if (left + width < 0 || left > 100) return null; // out of view
+                      // Visual range includes one extra buffer hour at end for label
+                      const totalVisualHours =
+                        config.endHour - config.startHour + 1;
 
-                    const isCompleted = task.task_status === "done";
+                      const width =
+                        (block.endTime - block.startTime) *
+                        (100 / totalVisualHours);
+                      const left =
+                        (block.startTime - config.startHour) *
+                        (100 / totalVisualHours);
 
-                    const getTaskColors = (priority?: string) => {
-                      if (isCompleted) {
-                        return {
-                          bg: "gray.300",
-                          border: "gray.500",
-                          hover: "gray.400",
-                          gradient: "linear(to-r, gray.300, gray.400)",
-                        };
-                      }
-                      switch (priority) {
-                        case "P0":
+                      if (left + width < 0 || left > 100) return null; // out of view
+
+                      const isCompleted = task.task_status === "done";
+
+                      const getTaskColors = (priority?: string) => {
+                        if (isCompleted) {
                           return {
-                            bg: "red.100",
-                            border: "red.500",
-                            hover: "red.200",
-                            gradient: "linear(to-r, red.100, red.200)",
+                            bg: "gray.300",
+                            border: "gray.500",
+                            hover: "gray.400",
+                            gradient: "linear(to-r, gray.300, gray.400)",
                           };
-                        case "P1":
-                          return {
-                            bg: "orange.100",
-                            border: "orange.500",
-                            hover: "orange.200",
-                            gradient: "linear(to-r, orange.100, orange.200)",
-                          };
-                        case "P2":
-                          return {
-                            bg: "green.100",
-                            border: "green.500",
-                            hover: "green.200",
-                            gradient: "linear(to-r, green.100, green.200)",
-                          };
-                        default:
-                          return {
-                            bg: "blue.100",
-                            border: "blue.500",
-                            hover: "blue.200",
-                            gradient: "linear(to-r, blue.100, blue.200)",
-                          };
-                      }
-                    };
+                        }
+                        switch (priority) {
+                          case "P0":
+                            return {
+                              bg: "red.100",
+                              border: "red.500",
+                              hover: "red.200",
+                              gradient: "linear(to-r, red.100, red.200)",
+                            };
+                          case "P1":
+                            return {
+                              bg: "orange.100",
+                              border: "orange.500",
+                              hover: "orange.200",
+                              gradient: "linear(to-r, orange.100, orange.200)",
+                            };
+                          case "P2":
+                            return {
+                              bg: "green.100",
+                              border: "green.500",
+                              hover: "green.200",
+                              gradient: "linear(to-r, green.100, green.200)",
+                            };
+                          default:
+                            return {
+                              bg: "blue.100",
+                              border: "blue.500",
+                              hover: "blue.200",
+                              gradient: "linear(to-r, blue.100, blue.200)",
+                            };
+                        }
+                      };
 
-                    const colors = getTaskColors(task.task_priority as string);
+                      const colors = getTaskColors(
+                        task.task_priority as string
+                      );
 
-                    return (
-                      <Popover
-                        key={`${block.taskId}-${idx}`}
-                        trigger="hover"
-                        placement="top"
-                        openDelay={300}
-                        closeDelay={500}
-                        isLazy
-                      >
-                        <PopoverTrigger>
-                          <Box
-                            position="absolute"
-                            left={`${Math.max(0, left)}%`}
-                            width={`${Math.min(
-                              100 - Math.max(0, left),
-                              width
-                            )}%`}
-                            height="80%"
-                            top="15%"
-                            h="70%"
-                            bgGradient={
-                              colors.gradient ||
-                              `linear(to-r, ${colors.bg}, ${colors.hover})`
-                            }
-                            border="1px solid"
-                            borderColor={colors.border}
-                            boxShadow="md"
-                            borderRadius="lg"
-                            cursor={isCompleted ? "default" : "pointer"}
-                            opacity={isCompleted ? 0.8 : 1}
-                            transition="all 0.2s"
-                            _hover={{
-                              transform: isCompleted ? "none" : "scale(1.05)",
-                              zIndex: 10,
-                              boxShadow: "xl",
-                              bgGradient: colors.gradient
-                                ? undefined
-                                : `linear(to-r, ${colors.hover}, ${colors.bg})`,
-                              // For frozen tasks, we might just want to show details, not animate heavily
-                            }}
-                            px={3}
-                            py={1}
-                            display="flex"
-                            alignItems="center"
-                            gap={2}
-                          >
-                            {isCompleted && (
-                              <Box as={FaCheck} color="gray.600" size="10px" />
-                            )}
-                            <Text
-                              fontSize="xs"
-                              fontWeight="bold"
-                              noOfLines={1}
-                              color={isCompleted ? "gray.600" : "black"}
+                      return (
+                        <Popover
+                          key={`${block.taskId}-${idx}`}
+                          trigger="hover"
+                          placement="top"
+                          openDelay={300}
+                          closeDelay={500}
+                          isLazy
+                        >
+                          <PopoverTrigger>
+                            <Box
+                              position="absolute"
+                              left={`${Math.max(0, left)}%`}
+                              width={`${Math.min(
+                                100 - Math.max(0, left),
+                                width
+                              )}%`}
+                              height="80%"
+                              top="15%"
+                              h="70%"
+                              bgGradient={
+                                colors.gradient ||
+                                `linear(to-r, ${colors.bg}, ${colors.hover})`
+                              }
+                              border="1px solid"
+                              borderColor={colors.border}
+                              boxShadow="md"
+                              borderRadius="lg"
+                              cursor={isCompleted ? "default" : "pointer"}
+                              opacity={isCompleted ? 0.8 : 1}
+                              transition="all 0.2s"
+                              _hover={{
+                                transform: isCompleted ? "none" : "scale(1.05)",
+                                zIndex: 10,
+                                boxShadow: "xl",
+                                bgGradient: colors.gradient
+                                  ? undefined
+                                  : `linear(to-r, ${colors.hover}, ${colors.bg})`,
+                                // For frozen tasks, we might just want to show details, not animate heavily
+                              }}
+                              px={3}
+                              py={1}
+                              display="flex"
+                              alignItems="center"
+                              gap={2}
                             >
-                              {task.task_name}
-                            </Text>
-                            <Text fontSize="xs" noOfLines={1} color="gray.600">
-                              {task.task_duration}hr
-                            </Text>
-                          </Box>
-                        </PopoverTrigger>
-                        <Portal>
-                          <PopoverContent
-                            width="320px"
-                            boxShadow="2xl"
-                            borderRadius="xl"
-                            borderColor={useColorModeValue(
-                              "gray.100",
-                              "gray.700"
-                            )}
-                            bg={useColorModeValue("white", "gray.800")}
-                            overflow="hidden"
-                            _focus={{ outline: "none" }}
-                          >
-                            <PopoverArrow />
-                            <PopoverBody p={0}>
-                              {/* Header Stripe */}
-                              <Box h="4px" bg="blue.500" width="100%" />
+                              {isCompleted && (
+                                <Box
+                                  as={FaCheck}
+                                  color="gray.600"
+                                  size="10px"
+                                />
+                              )}
+                              <Text
+                                fontSize="xs"
+                                fontWeight="bold"
+                                noOfLines={1}
+                                color={isCompleted ? "gray.600" : "black"}
+                              >
+                                {task.task_name}
+                              </Text>
+                              <Text
+                                fontSize="xs"
+                                noOfLines={1}
+                                color="gray.600"
+                              >
+                                {task.task_duration}hr
+                              </Text>
+                            </Box>
+                          </PopoverTrigger>
+                          <Portal>
+                            <PopoverContent
+                              width="320px"
+                              boxShadow="2xl"
+                              borderRadius="xl"
+                              borderColor={useColorModeValue(
+                                "gray.100",
+                                "gray.700"
+                              )}
+                              bg={useColorModeValue("white", "gray.800")}
+                              overflow="hidden"
+                              _focus={{ outline: "none" }}
+                            >
+                              <PopoverArrow />
+                              <PopoverBody p={0}>
+                                {/* Header Stripe */}
+                                <Box h="4px" bg="blue.500" width="100%" />
 
-                              <VStack align="stretch" spacing={3} p={4}>
-                                {/* Title & Priority */}
-                                <Flex justify="space-between" align="start">
-                                  <Text
-                                    fontWeight="bold"
-                                    fontSize="md"
-                                    lineHeight="shorter"
-                                  >
-                                    {task.task_name}
-                                  </Text>
-                                  {task.task_priority && (
-                                    <Badge
-                                      colorScheme={
-                                        task.task_priority === "P0"
-                                          ? "red"
-                                          : task.task_priority === "P1"
-                                          ? "orange"
-                                          : "green"
-                                      }
-                                      variant="subtle"
-                                      borderRadius="full"
-                                      px={2}
+                                <VStack align="stretch" spacing={3} p={4}>
+                                  {/* Title & Priority */}
+                                  <Flex justify="space-between" align="start">
+                                    <Text
+                                      fontWeight="bold"
+                                      fontSize="md"
+                                      lineHeight="shorter"
                                     >
-                                      {task.task_priority}
-                                    </Badge>
-                                  )}
-                                </Flex>
+                                      {task.task_name}
+                                    </Text>
+                                    {task.task_priority && (
+                                      <Badge
+                                        colorScheme={
+                                          task.task_priority === "P0"
+                                            ? "red"
+                                            : task.task_priority === "P1"
+                                            ? "orange"
+                                            : "green"
+                                        }
+                                        variant="subtle"
+                                        borderRadius="full"
+                                        px={2}
+                                      >
+                                        {task.task_priority}
+                                      </Badge>
+                                    )}
+                                  </Flex>
 
-                                {/* Description */}
-                                {task.task_description && (
-                                  <Text
-                                    fontSize="sm"
-                                    color="gray.500"
-                                    noOfLines={2}
-                                  >
-                                    {task.task_description}
-                                  </Text>
-                                )}
-
-                                <Divider />
-
-                                {/* Meta Details */}
-                                <VStack align="stretch" spacing={2}>
-                                  {/* Assignee */}
-                                  <Flex align="center" gap={2}>
-                                    <Avatar
-                                      size="xs"
-                                      name={dev.emp_name}
-                                      src={dev.avatar}
-                                    />
+                                  {/* Description */}
+                                  {task.task_description && (
                                     <Text
                                       fontSize="sm"
-                                      fontWeight="medium"
-                                      color="gray.700"
+                                      color="gray.500"
+                                      noOfLines={2}
                                     >
-                                      {dev.emp_name}
+                                      {task.task_description}
                                     </Text>
-                                  </Flex>
+                                  )}
 
-                                  {/* Duration & Deadline */}
-                                  <HStack spacing={4}>
-                                    <Flex align="center" gap={1.5}>
-                                      <Box as={FaClock} color="gray.400" />
-                                      <Text fontSize="xs" color="gray.600">
-                                        {task.task_duration
-                                          ? `${task.task_duration} hrs`
-                                          : "N/A"}
+                                  <Divider />
+
+                                  {/* Meta Details */}
+                                  <VStack align="stretch" spacing={2}>
+                                    {/* Assignee */}
+                                    <Flex align="center" gap={2}>
+                                      <Avatar
+                                        size="xs"
+                                        name={dev.emp_name}
+                                        src={dev.avatar}
+                                      />
+                                      <Text
+                                        fontSize="sm"
+                                        fontWeight="medium"
+                                        color="gray.700"
+                                      >
+                                        {dev.emp_name}
                                       </Text>
                                     </Flex>
-                                    {task.task_due_date && (
-                                      <Flex align="center" gap={1.5}>
-                                        <Box
-                                          as={FaCalendarAlt}
-                                          color="gray.400"
-                                        />
-                                        <Text fontSize="xs" color="gray.600">
-                                          {new Date(
-                                            task.task_due_date
-                                          ).toLocaleDateString()}
-                                        </Text>
-                                      </Flex>
-                                    )}
-                                  </HStack>
-                                </VStack>
 
-                                {/* Tags */}
-                                {task.task_tags && (
-                                  <Flex wrap="wrap" gap={2} mt={1}>
-                                    {task.task_tags.split(",").map((tag, i) => (
-                                      <Badge
-                                        key={i}
-                                        variant="outline"
-                                        colorScheme="purple"
-                                        fontSize="xx-small"
-                                        px={1.5}
-                                        py={0.5}
-                                        borderRadius="md"
+                                    {/* Duration & Deadline */}
+                                    <HStack spacing={4}>
+                                      <Flex
+                                        align="start"
+                                        direction="column"
+                                        gap={0}
                                       >
-                                        {tag.trim()}
-                                      </Badge>
-                                    ))}
-                                  </Flex>
-                                )}
+                                        <Flex align="center" gap={1.5}>
+                                          <Box as={FaClock} color="gray.400" />
+                                          <Text
+                                            fontSize="xs"
+                                            color="gray.600"
+                                            fontWeight="bold"
+                                          >
+                                            Planned:{" "}
+                                            {task.task_duration || "N/A"} hr
+                                          </Text>
+                                        </Flex>
+                                        <Flex align="center" gap={1.5} ml={5}>
+                                          <Text
+                                            fontSize="xs"
+                                            color={
+                                              isCompleted
+                                                ? "green.600"
+                                                : "gray.500"
+                                            }
+                                          >
+                                            Actual:{" "}
+                                            {task.time_spent
+                                              ? `${task.time_spent} hr`
+                                              : "-"}
+                                          </Text>
+                                        </Flex>
+                                      </Flex>
+                                      {task.task_due_date && (
+                                        <Flex align="center" gap={1.5}>
+                                          <Box
+                                            as={FaCalendarAlt}
+                                            color="gray.400"
+                                          />
+                                          <Text fontSize="xs" color="gray.600">
+                                            {new Date(
+                                              task.task_due_date
+                                            ).toLocaleDateString()}
+                                          </Text>
+                                        </Flex>
+                                      )}
+                                    </HStack>
+                                  </VStack>
 
-                                <Divider />
+                                  {/* Tags */}
+                                  {task.task_tags && (
+                                    <Flex wrap="wrap" gap={2} mt={1}>
+                                      {task.task_tags
+                                        .split(",")
+                                        .map((tag, i) => (
+                                          <Badge
+                                            key={i}
+                                            variant="outline"
+                                            colorScheme="purple"
+                                            fontSize="xx-small"
+                                            px={1.5}
+                                            py={0.5}
+                                            borderRadius="md"
+                                          >
+                                            {tag.trim()}
+                                          </Badge>
+                                        ))}
+                                    </Flex>
+                                  )}
 
-                                {/* Actions */}
-                                <HStack spacing={2} pt={2}>
-                                  <Button
-                                    leftIcon={<FaEdit />}
-                                    size="sm"
-                                    variant="outline"
-                                    w="50%"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditTask(task);
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    leftIcon={<FaCheck />}
-                                    size="sm"
-                                    colorScheme="green"
-                                    w="50%"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCompleteTask(task, block.startTime);
-                                    }}
-                                  >
-                                    Complete
-                                  </Button>
-                                </HStack>
-                              </VStack>
-                            </PopoverBody>
-                          </PopoverContent>
-                        </Portal>
-                      </Popover>
-                    );
-                  })}
+                                  <Divider />
+
+                                  {/* Actions */}
+                                  {!isCompleted && (
+                                    <HStack spacing={2} pt={2}>
+                                      {!isRank1 && (
+                                        <Button
+                                          leftIcon={<FaEdit />}
+                                          size="sm"
+                                          variant="outline"
+                                          w="50%"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEditTask(task);
+                                          }}
+                                        >
+                                          Edit
+                                        </Button>
+                                      )}
+                                      <Button
+                                        leftIcon={<FaCheck />}
+                                        size="sm"
+                                        colorScheme="green"
+                                        w={isRank1 ? "100%" : "50%"}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleCompleteTask(
+                                            task,
+                                            block.startTime
+                                          );
+                                        }}
+                                      >
+                                        Complete
+                                      </Button>
+                                    </HStack>
+                                  )}
+                                </VStack>
+                              </PopoverBody>
+                            </PopoverContent>
+                          </Portal>
+                        </Popover>
+                      );
+                    })}
+                </Box>
               </Box>
-            </Box>
-          ))}
-        </VStack>
+            ))}
+          </VStack>
+        </Box>
       </Box>
     </Box>
   );

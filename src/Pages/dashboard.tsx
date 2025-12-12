@@ -174,15 +174,6 @@ const Dashboard: React.FC = () => {
                 </Heading>
                 <Text color="gray.500">My schedule and tasks</Text>
               </Box>
-              <Button
-                leftIcon={<FaPlus />}
-                colorScheme="blue"
-                size="md"
-                onClick={handleCreateTask}
-                boxShadow="lg"
-              >
-                Create Task
-              </Button>
             </Flex>
 
             <Box>

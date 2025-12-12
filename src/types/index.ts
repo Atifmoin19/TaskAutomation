@@ -28,6 +28,8 @@ export interface Task {
     task_created_at?: string;
     task_updated_at?: string;
     task_duration?: string; // "4" or "4 hours"
+    time_spent?: number; // Hours spent as float
+    completed_at?: string; // ISO String
 }
 
 export interface DaySchedule {
