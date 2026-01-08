@@ -17,7 +17,7 @@ const persistor = persistStore(store);
 createRoot(document.getElementById("root")!).render(
   <ChakraProvider resetCSS theme={theme}>
     <Provider store={store}>
-      <Router>
+      <Router basename="/task-automation">
         <PersistGate loading={null} persistor={persistor}>
           <App />
         </PersistGate>
