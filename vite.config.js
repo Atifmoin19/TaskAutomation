@@ -5,6 +5,7 @@ import path from "path";
 import svgr from "vite-plugin-svgr";
 // https://vite.dev/config/
 export default defineConfig({
+    base: "/task-automation/",
     plugins: [
         react(),
         tsconfigPaths(),
