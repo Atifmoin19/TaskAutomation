@@ -16,14 +16,8 @@ import { useAppDispatch } from "app/hooks";
 import { setCurrentUser, setToken } from "app/slices/scheduler.slice";
 import { useNavigate } from "react-router-dom";
 import { useLoginMutation, useRegisterMutation } from "Services/user.api";
-import { motion, AnimatePresence } from "framer-motion";
 import { Image, Flex } from "@chakra-ui/react";
 import taskboardImg from "assets/loginIlustration.webp"; // Assuming alias or path works, otherwise relative
-
-// Using default import for image.
-
-const MotionFlex = motion(Flex);
-const MotionBox = motion(Box);
 
 import SimpleLayout from "Layouts/simpleLayout";
 
@@ -113,7 +107,7 @@ const Login: React.FC = () => {
         position="relative"
         zIndex={10}
       >
-        <MotionFlex
+        <Flex
           w={{ base: "100%", md: "900px" }}
           h="600px"
           bg="rgba(255, 255, 255, 0.2)" // Glass background
@@ -122,8 +116,7 @@ const Login: React.FC = () => {
           borderRadius="xl"
           boxShadow="0 8px 32px 0 rgba(31, 38, 135, 0.37)" // Deep shadow
           overflow="hidden"
-          layout
-          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+          transition="all 0.3s ease-in-out"
           flexDirection={isSignup ? "row-reverse" : "row"}
           position="relative" // Ensure positioning context for orbs
         >
@@ -138,7 +131,7 @@ const Login: React.FC = () => {
             pointerEvents="none"
           >
             {/* Orb 1: Blue - Top Left */}
-            <MotionBox
+            <Box
               position="absolute"
               top="-10%"
               left="-5%"
@@ -147,20 +140,11 @@ const Login: React.FC = () => {
               borderRadius="full"
               bg="radial-gradient(circle at 30% 30%, rgba(99, 179, 237, 0.4), rgba(49, 130, 206, 0.1))"
               filter="blur(40px)"
-              animate={{
-                x: [0, 50, 0],
-                y: [0, 30, 0],
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 15,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }}
+              animation="orb1 15s infinite alternate ease-in-out"
             />
 
             {/* Orb 2: Purple - Bottom Right */}
-            <MotionBox
+            <Box
               position="absolute"
               bottom="-10%"
               right="-10%"
@@ -169,20 +153,11 @@ const Login: React.FC = () => {
               borderRadius="full"
               bg="radial-gradient(circle at 70% 70%, rgba(159, 122, 234, 0.4), rgba(128, 90, 213, 0.1))"
               filter="blur(50px)"
-              animate={{
-                x: [0, -40, 0],
-                y: [0, -60, 0],
-                scale: [1, 1.2, 1],
-              }}
-              transition={{
-                duration: 20,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }}
+              animation="orb2 20s infinite alternate ease-in-out"
             />
 
             {/* Orb 3: Cyan - Top Rightish */}
-            <MotionBox
+            <Box
               position="absolute"
               top="20%"
               right="10%"
@@ -191,27 +166,18 @@ const Login: React.FC = () => {
               borderRadius="full"
               bg="radial-gradient(circle at 50% 50%, rgba(56, 178, 172, 0.3), rgba(49, 151, 149, 0.1))"
               filter="blur(30px)"
-              animate={{
-                x: [0, 30, 0],
-                y: [0, 50, 0],
-                scale: [1, 0.9, 1],
-              }}
-              transition={{
-                duration: 18,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }}
+              animation="orb3 18s infinite alternate ease-in-out"
             />
           </Box>
 
           {/* Image Section */}
-          <MotionBox
-            layout
+          <Box
             w="50%"
             h="100%"
             position="relative"
             bg="gray.100"
             zIndex={1}
+            transition="all 0.3s ease-in-out"
           >
             <Image
               src={taskboardImg}
@@ -220,20 +186,10 @@ const Login: React.FC = () => {
               w="100%"
               h="100%"
             />
-            {/* Overlay for Futuristic feel */}
-            {/* <Box
-              position="absolute"
-              top={0}
-              left={0}
-              w="100%"
-              h="100%"
-              bgGradient="linear(to-b, transparent 0%, rgba(0,0,0,0.4) 100%)"
-            /> */}
-          </MotionBox>
+          </Box>
 
           {/* Form Section */}
-          <MotionBox
-            layout
+          <Box
             w="50%"
             h="100%"
             bg="rgba(255, 255, 255, 0.65)" // Semi-transparent for readability
@@ -243,115 +199,108 @@ const Login: React.FC = () => {
             flexDirection="column"
             justifyContent="center"
             zIndex={1}
+            transition="all 0.3s ease-in-out"
           >
-            <AnimatePresence mode="wait">
-              {/* Using key to trigger internal form animation if desired, or just keep same form instance */}
-              <VStack
-                spacing={5}
-                as="form"
-                onSubmit={handleAuth}
-                w="100%"
-                key={isSignup ? "signup" : "login"}
-              >
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  style={{ width: "100%" }}
-                >
-                  <Heading size="xl" color="blue.600" mb={2} textAlign="center">
-                    {isSignup ? "Create Account" : "Welcome Back"}
-                  </Heading>
-                  <Text color="gray.500" mb={8} textAlign="center">
-                    {isSignup
-                      ? "Join the future of task management."
-                      : "Enter your credentials to access your workspace."}
-                  </Text>
+            {/* Using key to trigger internal form animation if desired, or just keep same form instance */}
+            <VStack
+              spacing={5}
+              as="form"
+              onSubmit={handleAuth}
+              w="100%"
+              key={isSignup ? "signup" : "login"}
+            >
+              <Box style={{ width: "100%" }} animation="fadeInUp 0.3s ease-out">
+                <Heading size="xl" color="blue.600" mb={2} textAlign="center">
+                  {isSignup ? "Create Account" : "Welcome Back"}
+                </Heading>
+                <Text color="gray.500" mb={8} textAlign="center">
+                  {isSignup
+                    ? "Join the future of task management."
+                    : "Enter your credentials to access your workspace."}
+                </Text>
 
-                  <VStack spacing={4}>
-                    <FormControl isRequired>
-                      <FormLabel>User ID</FormLabel>
-                      <Input
-                        placeholder="e.g. admin"
-                        size="lg"
-                        value={userId}
-                        onChange={(e) => setUserId(e.target.value)}
-                        fontSize="md"
-                      />
-                    </FormControl>
-
-                    <FormControl isRequired>
-                      <FormLabel>Password</FormLabel>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        size="lg"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        fontSize="md"
-                      />
-                    </FormControl>
-
-                    {isSignup && (
-                      <FormControl isRequired>
-                        <FormLabel>Email Address</FormLabel>
-                        <Input
-                          type="email"
-                          placeholder="you@company.com"
-                          size="lg"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          fontSize="md"
-                        />
-                      </FormControl>
-                    )}
-
-                    <Button
-                      type="submit"
-                      colorScheme="blue"
-                      width="full"
+                <VStack spacing={4}>
+                  <FormControl isRequired>
+                    <FormLabel>User ID</FormLabel>
+                    <Input
+                      placeholder="e.g. admin"
                       size="lg"
-                      mt={2}
-                      isLoading={
-                        (isLoading && !isSignup) || (isRegistering && isSignup)
-                      }
-                      boxShadow="lg"
-                      _hover={{
-                        transform: "translateY(-2px)",
-                        boxShadow: "xl",
-                      }}
-                    >
-                      {isSignup ? "Sign Up" : "Login"}
-                    </Button>
-                  </VStack>
+                      value={userId}
+                      onChange={(e) => setUserId(e.target.value)}
+                      fontSize="md"
+                    />
+                  </FormControl>
 
-                  <Box textAlign="center" mt={6}>
-                    <Text fontSize="sm" color="gray.500">
-                      {isSignup
-                        ? "Already have an account?"
-                        : "New to DevScheduler?"}
-                    </Text>
-                    <Button
-                      variant="link"
-                      colorScheme="blue"
-                      fontWeight="bold"
-                      onClick={() => {
-                        setIsSignup(!isSignup);
-                        // Clear fields as requested
-                        setUserId("");
-                        setPassword("");
-                        setEmail("");
-                      }}
-                    >
-                      {isSignup ? "Log In" : "Create Account"}
-                    </Button>
-                  </Box>
-                </motion.div>
-              </VStack>
-            </AnimatePresence>
-          </MotionBox>
-        </MotionFlex>
+                  <FormControl isRequired>
+                    <FormLabel>Password</FormLabel>
+                    <Input
+                      type="password"
+                      placeholder="••••••••"
+                      size="lg"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      fontSize="md"
+                    />
+                  </FormControl>
+
+                  {isSignup && (
+                    <FormControl isRequired>
+                      <FormLabel>Email Address</FormLabel>
+                      <Input
+                        type="email"
+                        placeholder="you@company.com"
+                        size="lg"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        fontSize="md"
+                      />
+                    </FormControl>
+                  )}
+
+                  <Button
+                    type="submit"
+                    colorScheme="blue"
+                    width="full"
+                    size="lg"
+                    mt={2}
+                    isLoading={
+                      (isLoading && !isSignup) || (isRegistering && isSignup)
+                    }
+                    boxShadow="lg"
+                    _hover={{
+                      transform: "translateY(-2px)",
+                      boxShadow: "xl",
+                    }}
+                  >
+                    {isSignup ? "Sign Up" : "Login"}
+                  </Button>
+                </VStack>
+
+                <Box textAlign="center" mt={6}>
+                  <Text fontSize="sm" color="gray.500">
+                    {isSignup
+                      ? "Already have an account?"
+                      : "New to DevScheduler?"}
+                  </Text>
+                  <Button
+                    variant="link"
+                    colorScheme="blue"
+                    fontWeight="bold"
+                    onClick={() => {
+                      setIsSignup(!isSignup);
+                      // Clear fields as requested
+                      setUserId("");
+                      setPassword("");
+                      setEmail("");
+                    }}
+                  >
+                    {isSignup ? "Log In" : "Create Account"}
+                  </Button>
+                </Box>
+              </Box>
+            </VStack>
+          </Box>
+        </Flex>
       </Container>
     </SimpleLayout>
   );
