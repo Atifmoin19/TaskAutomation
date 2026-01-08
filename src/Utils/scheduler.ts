@@ -25,9 +25,24 @@ export const calculateSchedule = (
         // 1. Setup Simulation State
         const remainingDuration: Record<string, number> = {};
         myTasks.forEach(t => {
-            // For done tasks, use actual time_spent if available. For pending, use planned task_duration.
-            const duration = (t.task_status === "done" && t.time_spent) ? Number(t.time_spent) : Number(t.task_duration || 1);
-            remainingDuration[t.id] = Math.max(0.1, duration);
+            let duration = (t.task_status === "done" && t.time_spent) ? Number(t.time_spent) : Number(t.task_duration || 1);
+
+            // Filter out completed tasks that finished before the simulation window
+            if (t.task_status === "done") {
+                // Fallback: If completed_at is missing, try updated_at, then created_at
+                const doneDateStr = t.completed_at || t.task_updated_at || t.task_created_at;
+
+                if (doneDateStr) {
+                    const doneTime = new Date(doneDateStr).getTime();
+                    // If the task was "done" strictly before the start of the simulation period,
+                    // we consider it historical and do not schedule it independently.
+                    if (doneTime < startDate.getTime()) {
+                        duration = 0;
+                    }
+                }
+            }
+
+            remainingDuration[t.id] = duration > 0 ? Math.max(0.1, duration) : 0;
         });
 
         // 2. Multi-Day Simulation Loop
@@ -174,16 +189,71 @@ export const calculateSchedule = (
             // Commit any running block at End of Day
             commitBlock(t);
 
+            // Cleanup: If any task has a tiny remainder (e.g. float error or < 1 min), snap to 0 to prevent ghost spillover
+            Object.keys(remainingDuration).forEach(key => {
+                if (remainingDuration[key] > 0 && remainingDuration[key] < 0.02) {
+                    remainingDuration[key] = 0;
+                }
+            });
+
             // Advance Day
             currentSimDate.setDate(currentSimDate.getDate() + 1);
             dayCount++;
-
             // Check if we need to continue
             hasRemainingWork = Object.values(remainingDuration).some(d => d > EPSILON);
         }
     });
 
     return schedule;
+};
+
+// Helper to calculate business hours between two dates
+export const calculateBusinessDuration = (
+    start: Date,
+    end: Date,
+    config: CompanyConfig
+): number => {
+    let totalHours = 0;
+    const current = new Date(start);
+
+    // Limit infinite loops
+    let safeGuard = 0;
+    while (current < end && safeGuard < 1000) {
+        safeGuard++;
+
+        const dayStart = new Date(current);
+        dayStart.setHours(config.startHour, 0, 0, 0);
+
+        const dayEnd = new Date(current);
+        dayEnd.setHours(config.endHour, 0, 0, 0);
+
+        // Determine overlap of [current, end] with [dayStart, dayEnd]
+        const spanStart = current.getTime() < dayStart.getTime() ? dayStart : current;
+
+        let spanEnd = end;
+        if (spanEnd.getTime() > dayEnd.getTime()) {
+            spanEnd = dayEnd;
+        }
+
+        if (spanStart < spanEnd) {
+            const diff = (spanEnd.getTime() - spanStart.getTime()) / (1000 * 60 * 60);
+            totalHours += diff;
+        }
+
+        // Advance to next day start
+        const nextDay = new Date(current);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDay.setHours(config.startHour, 0, 0, 0);
+
+        // If we are already past 'end', break
+        if (nextDay.getTime() > end.getTime() && end.getTime() < dayEnd.getTime()) {
+            break;
+        }
+
+        current.setTime(nextDay.getTime());
+    }
+
+    return Math.max(0.1, Math.round(totalHours * 10000) / 10000);
 };
 
 // Helper to get color by priority

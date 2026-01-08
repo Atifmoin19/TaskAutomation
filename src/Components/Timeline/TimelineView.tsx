@@ -28,7 +28,11 @@ import {
   FaEdit,
 } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "app/hooks";
-import { calculateSchedule, getLocalDateKey } from "Utils/scheduler";
+import {
+  calculateSchedule,
+  getLocalDateKey,
+  calculateBusinessDuration,
+} from "Utils/scheduler";
 import { Task } from "types";
 import { ADMIN_ROLES, SUPER_ADMIN_ROLES, ROLE_RANK } from "Utils/constants";
 import { updateTask } from "app/slices/scheduler.slice";
@@ -53,6 +57,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
   const dispatch = useAppDispatch();
   const toast = useToast();
   const [updateTaskApi] = useUpdateTaskMutation();
+  const popoverBorderColor = useColorModeValue("gray.100", "gray.700");
+  const popoverBg = useColorModeValue("white", "gray.800");
 
   const developers = useMemo(() => {
     if (!currentUser) return [];
@@ -115,18 +121,24 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
   // Memoize schedule calculation
   const schedule = useMemo(() => {
-    // Start Date: Start of today (00:00) so we can schedule from morning
+    // Start Date:
+    // If viewing the past, start simulation from that date to show history/schedule.
+    // If viewing the future, start from Today to correctly project the current backlog.
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    // Current Time: Now (for overrun calculation)
+    const viewDate = new Date(currentDate);
+    viewDate.setHours(0, 0, 0, 0);
 
-    return calculateSchedule(tasks, developers, config, startOfToday);
-  }, [tasks, developers, config, tick]);
+    // Use the earlier of the two
+    const simStartDate = viewDate < startOfToday ? viewDate : startOfToday;
+
+    return calculateSchedule(tasks, developers, config, simStartDate);
+  }, [tasks, developers, config, tick, currentDate]);
 
   const timeSlots = useMemo(() => {
     const slots = [];
-    for (let i = config.startHour; i <= config.endHour; i++) {
+    for (let i = config.startHour; i < config.endHour; i++) {
       slots.push(i);
     }
     return slots;
@@ -150,14 +162,12 @@ const TimelineView: React.FC<TimelineViewProps> = ({
   const handleCompleteTask = async (task: Task, scheduledStartTime: number) => {
     try {
       const now = new Date();
-      const currentHour = now.getHours() + now.getMinutes() / 60;
-
-      // Calculate actual duration based on when it was finished vs when it started
-      // Max with 0.1 to avoid zero/negative duration
-      let newDuration = Math.max(0.1, currentHour - scheduledStartTime);
-
-      // Round to 2 decimal places
-      newDuration = Math.round(newDuration * 100) / 100;
+      // Calculate actual duration based on business hours since CREATION vs NOW
+      // This handles multi-day tasks correctly (ignoring nights)
+      const startTime = task.task_created_at
+        ? new Date(task.task_created_at)
+        : now;
+      let newDuration = calculateBusinessDuration(startTime, now, config);
 
       const updatedTask = {
         ...task,
@@ -233,7 +243,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         borderRadius="xl"
         border="1px solid rgba(255,255,255,0.2)"
       >
-        <Box minW="1400px">
+        <Box minW="1400px" pr={8}>
           {/* Header (Time Slots) */}
           <Flex
             ml="150px"
@@ -261,7 +271,18 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                 </Text>
               </Box>
             ))}
-            {/* End Hour Label Removed as it is now part of timeSlots */}
+            {/* End Hour Label */}
+            <Box
+              position="absolute"
+              right="0"
+              top="2"
+              transform="translateX(50%)"
+            >
+              <Text fontSize="sm" color="gray.500" fontWeight="medium">
+                {config.endHour > 12 ? config.endHour - 12 : config.endHour}{" "}
+                {config.endHour >= 12 ? "PM" : "AM"}
+              </Text>
+            </Box>
           </Flex>
 
           {/* Rows */}
@@ -303,9 +324,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                       const task = tasks.find((t) => t.id === block.taskId);
                       if (!task) return null;
 
-                      // Visual range includes one extra buffer hour at end for label
+                      // Visual range
                       const totalVisualHours =
-                        config.endHour - config.startHour + 1;
+                        config.endHour - config.startHour;
 
                       const width =
                         (block.endTime - block.startTime) *
@@ -438,11 +459,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                               width="320px"
                               boxShadow="2xl"
                               borderRadius="xl"
-                              borderColor={useColorModeValue(
-                                "gray.100",
-                                "gray.700"
-                              )}
-                              bg={useColorModeValue("white", "gray.800")}
+                              borderColor={popoverBorderColor}
+                              bg={popoverBg}
                               overflow="hidden"
                               _focus={{ outline: "none" }}
                             >
