@@ -133,7 +133,13 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     // Use the earlier of the two
     const simStartDate = viewDate < startOfToday ? viewDate : startOfToday;
 
-    return calculateSchedule(tasks, developers, config, simStartDate);
+    // Filter tasks for Timeline: Only show "in-progress" and "done"
+    // The user requirement: "now in timeline only in progress or done task wil be listed notign else"
+    const timelineTasks = tasks.filter(
+      (t) => t.task_status === "in-progress" || t.task_status === "done"
+    );
+
+    return calculateSchedule(timelineTasks, developers, config, simStartDate);
   }, [tasks, developers, config, tick, currentDate]);
 
   const timeSlots = useMemo(() => {
@@ -159,7 +165,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     setCurrentDate(prev);
   };
 
-  const handleCompleteTask = async (task: Task, scheduledStartTime: number) => {
+  const handleCompleteTask = async (task: Task) => {
     try {
       const now = new Date();
       // Calculate actual duration based on business hours since CREATION vs NOW
@@ -625,10 +631,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                         w={isRank1 ? "100%" : "50%"}
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleCompleteTask(
-                                            task,
-                                            block.startTime
-                                          );
+                                          handleCompleteTask(task);
                                         }}
                                       >
                                         Complete

@@ -235,8 +235,12 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
               >
                 <option value="backlog">Backlog</option>
                 <option value="todo">To Do</option>
-                <option value="in-progress">In Progress</option>
-                <option value="done">Done</option>
+                {(currentUser?.emp_designation?.toUpperCase() === "L1" ||
+                  status === "in-progress") && (
+                  <option value="in-progress">In Progress</option>
+                )}
+                {(currentUser?.emp_designation?.toUpperCase() === "L1" ||
+                  status === "done") && <option value="done">Done</option>}
               </Select>
             </FormControl>
 

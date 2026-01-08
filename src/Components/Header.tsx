@@ -10,19 +10,45 @@ import {
   Stack,
   DrawerCloseButton,
   DrawerHeader,
+  IconButton,
+  Box,
+  Badge,
 } from "@chakra-ui/react";
-import { FaUser, FaPowerOff, FaHome, FaTasks, FaBars } from "react-icons/fa";
+import { FaUser, FaPowerOff, FaBell } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { HEADER_HEIGHT, ADMIN_ROLES, SUPER_ADMIN_ROLES } from "Utils/constants";
 import { useAppSelector, useAppDispatch } from "app/hooks";
 import { resetStore } from "app/slices/scheduler.slice";
 import { useLogoutMutation } from "Services/user.api";
+import PendingTasksModal from "./PendingTasksModal";
+import { useState, useEffect, useRef } from "react";
 
 const Header = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { currentUser } = useAppSelector((state) => state.scheduler);
+  const { currentUser, tasks } = useAppSelector((state) => state.scheduler);
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const {
+    isOpen: isModalOpen,
+    onOpen: onModalOpen,
+    onClose: onModalClose,
+  } = useDisclosure();
+
+  const hasOpenedRef = useRef(false);
+
+  const pendingCount = tasks.filter(
+    (t) =>
+      currentUser &&
+      t.task_assigned_to === currentUser.emp_id &&
+      (t.task_status === "backlog" || t.task_status === "todo")
+  ).length;
+
+  useEffect(() => {
+    if (currentUser && pendingCount > 0 && !hasOpenedRef.current) {
+      onModalOpen();
+      hasOpenedRef.current = true;
+    }
+  }, [currentUser, pendingCount, onModalOpen]);
 
   const [logout] = useLogoutMutation();
   const handleLogout = () => {
@@ -78,6 +104,29 @@ const Header = () => {
         </Flex>
         {currentUser && (
           <Flex alignItems="center" gap={4}>
+            {/* Bell Icon for Pending Tasks */}
+            <Box position="relative">
+              <IconButton
+                aria-label="Pending Tasks"
+                icon={<FaBell />}
+                variant="ghost"
+                colorScheme="gray"
+                onClick={onModalOpen}
+              />
+              {pendingCount > 0 && (
+                <Badge
+                  position="absolute"
+                  top="-1px"
+                  right="-1px"
+                  colorScheme="red"
+                  borderRadius="full"
+                  fontSize="0.7em"
+                  px={1.5}
+                >
+                  {pendingCount}
+                </Badge>
+              )}
+            </Box>
             <Flex
               alignItems="center"
               gap={2}
@@ -104,6 +153,7 @@ const Header = () => {
           </Flex>
         )}
       </Flex>
+      <PendingTasksModal isOpen={isModalOpen} onClose={onModalClose} />
     </>
   );
 };
