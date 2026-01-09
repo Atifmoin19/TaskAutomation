@@ -37,7 +37,9 @@ export interface TaskSession {
     start_time: string;
     end_time?: string;
     duration?: number; // minutes or hours
-    status?: string; // 'backlog', 'active', etc.
+    status?: string;
+    status_label?: string;
+    completion_status?: string;
 }
 
 export interface DaySchedule {

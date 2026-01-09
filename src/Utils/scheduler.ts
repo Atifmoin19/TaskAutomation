@@ -37,14 +37,23 @@ export const calculateSchedule = (
                     const startHour = start.getHours() + start.getMinutes() / 60;
                     const endHour = end.getHours() + end.getMinutes() / 60;
 
+                    // Determine status from session fields
+                    // Priority: status_label (new session) > completion_status (closed session) > status > fallback
+                    let sessionStatus = session.status_label || session.completion_status || session.status;
+
+                    // Fallback mapping if backend sends different strings
+                    if (sessionStatus === 'in-progress' || sessionStatus === 'in progress') sessionStatus = 'planned'; // Show as normal/planned
+                    if (!sessionStatus) {
+                        sessionStatus = task.task_status === 'done' ? 'completed' : 'backlog';
+                    }
+
                     // Add to schedule
                     schedule[dev.emp_id].push({
                         taskId: task.id,
                         startTime: startHour,
                         endTime: endHour,
                         date: dateKey,
-                        // If task is not done, past sessions are likely "backlog" or "attempts"
-                        status: task.task_status === 'done' ? 'completed' : 'backlog',
+                        status: sessionStatus as any,
                         isSession: true
                     });
 

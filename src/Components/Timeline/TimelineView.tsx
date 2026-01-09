@@ -173,8 +173,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         task_updated_at: new Date().toISOString(),
         task_assigned_date: new Date().toISOString(),
       };
-      await updateTaskApi(updatedTask).unwrap();
-      dispatch(updateTask(updatedTask));
+      const resp = await updateTaskApi(updatedTask).unwrap();
+      // Use the response from backend which contains the new sessions
+      dispatch(updateTask(resp || updatedTask));
       toast({
         title: "Task Picked",
         description: `${task.task_name} resumed.`,

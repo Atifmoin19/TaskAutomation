@@ -81,8 +81,8 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
         task_assigned_date: new Date().toISOString(), // Reset start time for simulation
       };
 
-      await updateTaskApi(updatedTask).unwrap();
-      dispatch(updateTask(updatedTask));
+      const resp = await updateTaskApi(updatedTask).unwrap();
+      dispatch(updateTask(resp || updatedTask));
 
       toast({
         title: "Task Picked",
