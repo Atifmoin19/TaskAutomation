@@ -15,6 +15,7 @@ export const calculateSchedule = (
     startDate: Date = new Date()
 ): Record<string, TaskBlock[]> => {
     const schedule: Record<string, TaskBlock[]> = {};
+    const EPSILON = 0.001; // Tolerance for float comparison
 
     developers.forEach(dev => {
         schedule[dev.emp_id] = [];
@@ -68,7 +69,12 @@ export const calculateSchedule = (
         const remainingDuration: Record<string, number> = {};
 
         myTasks.forEach(t => {
-            let totalRequired = Number(t.task_duration || 1);
+            const isDone = t.task_status?.toLowerCase() === 'done';
+
+            // If done, use time_spent (actual). If not done, use duration (planned).
+            let totalRequired = (isDone && t.time_spent)
+                ? Number(t.time_spent)
+                : Number(t.task_duration || 1);
 
             // Deduct time already spent in sessions
             let spentInSessions = 0;
@@ -82,18 +88,14 @@ export const calculateSchedule = (
                 });
             }
 
-            // If task is done, remaining is 0 (unless we strictly want to show 'time spent' history, 
-            // but we already mapped sessions above. The 'done' logic in original code was complex. 
-            // If we have sessions, we trust sessions. If not, use legacy logic.)
 
-            if (t.task_status === 'done') {
+
+            if (isDone) {
                 if (!t.task_sessions || t.task_sessions.length === 0) {
                     // Legacy handle for Done tasks without sessions
-                    // (Keep original logic or similar)
-                    // For now, let's assume if it's done and no sessions, we treat it as 0 remaining to avoid double booking
-                    // or we simulate strictly if "completed_at" is in future of start date?
-                    // To stay safe with legacy data:
+                    // Use completed_at or updated_at. If neither, fallback to created_at
                     const doneDateStr = t.completed_at || t.task_updated_at || t.task_created_at;
+
                     if (doneDateStr && new Date(doneDateStr).getTime() < startDate.getTime()) {
                         totalRequired = 0;
                     }
@@ -105,10 +107,12 @@ export const calculateSchedule = (
                 totalRequired -= spentInSessions;
             }
 
-            remainingDuration[t.id] = Math.max(0.01, totalRequired); // ensure at least small block if 0
-            if (totalRequired <= 0 && t.task_status !== 'done') {
-                // If calculation says 0 but task not done, give it some time
-                remainingDuration[t.id] = 1;
+            // Fix: Do not force 0.01 if the task is genuinely done or 0.
+            remainingDuration[t.id] = Math.max(0, totalRequired);
+
+            // Only force a small block if task is NOT done but calculation resulted in <= 0
+            if (remainingDuration[t.id] <= EPSILON && !isDone) {
+                remainingDuration[t.id] = 0.1;
             }
         });
 
@@ -116,7 +120,6 @@ export const calculateSchedule = (
         let currentSimDate = new Date(startDate);
         let dayCount = 0;
         const MAX_DAYS = 60;
-        const EPSILON = 0.001;
 
         let hasRemainingWork = Object.values(remainingDuration).some(d => d > EPSILON);
 
