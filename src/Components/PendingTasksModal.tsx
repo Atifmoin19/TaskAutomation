@@ -78,6 +78,7 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
         ...task,
         task_status: "in-progress",
         task_updated_at: new Date().toISOString(),
+        task_assigned_date: new Date().toISOString(), // Reset start time for simulation
       };
 
       await updateTaskApi(updatedTask).unwrap();
@@ -90,6 +91,10 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
         duration: 3000,
         isClosable: true,
       });
+
+      if (pendingTasks.length <= 1) {
+        onClose();
+      }
     } catch (error) {
       toast({
         title: "Error",

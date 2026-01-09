@@ -30,6 +30,14 @@ export interface Task {
     task_duration?: string; // "4" or "4 hours"
     time_spent?: number; // Hours spent as float
     completed_at?: string; // ISO String
+    task_sessions?: TaskSession[];
+}
+
+export interface TaskSession {
+    start_time: string;
+    end_time?: string;
+    duration?: number; // minutes or hours
+    status?: string; // 'backlog', 'active', etc.
 }
 
 export interface DaySchedule {
@@ -37,11 +45,14 @@ export interface DaySchedule {
     blocks: TaskBlock[];
 }
 
+// Fix TaskBlock definition
 export interface TaskBlock {
     taskId: string;
     startTime: number; // Hour of day (e.g. 9.5 for 9:30 AM)
     endTime: number;
     date: string;
+    status?: 'completed' | 'backlog' | 'in-progress' | 'planned';
+    isSession?: boolean;
 }
 
 export interface ScheduledTask extends Task {

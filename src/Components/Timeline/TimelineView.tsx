@@ -165,6 +165,28 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     setCurrentDate(prev);
   };
 
+  const handlePickFromTimeline = async (task: Task) => {
+    try {
+      const updatedTask = {
+        ...task,
+        task_status: "in-progress",
+        task_updated_at: new Date().toISOString(),
+        task_assigned_date: new Date().toISOString(),
+      };
+      await updateTaskApi(updatedTask).unwrap();
+      dispatch(updateTask(updatedTask));
+      toast({
+        title: "Task Picked",
+        description: `${task.task_name} resumed.`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({ title: "Error", status: "error" });
+    }
+  };
+
   const handleCompleteTask = async (task: Task) => {
     try {
       const now = new Date();
@@ -345,7 +367,18 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
                       const isCompleted = task.task_status === "done";
 
-                      const getTaskColors = (priority?: string) => {
+                      const getTaskColors = (
+                        priority?: string,
+                        status?: string
+                      ) => {
+                        if (status === "backlog") {
+                          return {
+                            bg: "red.50",
+                            border: "red.500",
+                            hover: "red.100",
+                            gradient: "linear(to-r, red.50, red.100)",
+                          };
+                        }
                         if (isCompleted) {
                           return {
                             bg: "gray.300",
@@ -387,7 +420,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                       };
 
                       const colors = getTaskColors(
-                        task.task_priority as string
+                        task.task_priority as string,
+                        block.status
                       );
 
                       return (
@@ -608,35 +642,51 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                   <Divider />
 
                                   {/* Actions */}
-                                  {!isCompleted && (
-                                    <HStack spacing={2} pt={2}>
-                                      {!isRank1 && (
+                                  {block.status === "backlog" ? (
+                                    <Button
+                                      leftIcon={<FaCheck />}
+                                      size="sm"
+                                      colorScheme="red"
+                                      w="100%"
+                                      mt={2}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePickFromTimeline(task);
+                                      }}
+                                    >
+                                      Pick Task
+                                    </Button>
+                                  ) : (
+                                    !isCompleted && (
+                                      <HStack spacing={2} pt={2}>
+                                        {!isRank1 && (
+                                          <Button
+                                            leftIcon={<FaEdit />}
+                                            size="sm"
+                                            variant="outline"
+                                            w="50%"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onEditTask(task);
+                                            }}
+                                          >
+                                            Edit
+                                          </Button>
+                                        )}
                                         <Button
-                                          leftIcon={<FaEdit />}
+                                          leftIcon={<FaCheck />}
                                           size="sm"
-                                          variant="outline"
-                                          w="50%"
+                                          colorScheme="green"
+                                          w={isRank1 ? "100%" : "50%"}
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onEditTask(task);
+                                            handleCompleteTask(task);
                                           }}
                                         >
-                                          Edit
+                                          Complete
                                         </Button>
-                                      )}
-                                      <Button
-                                        leftIcon={<FaCheck />}
-                                        size="sm"
-                                        colorScheme="green"
-                                        w={isRank1 ? "100%" : "50%"}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCompleteTask(task);
-                                        }}
-                                      >
-                                        Complete
-                                      </Button>
-                                    </HStack>
+                                      </HStack>
+                                    )
                                   )}
                                 </VStack>
                               </PopoverBody>

@@ -39,6 +39,7 @@ function StandardRoutes() {
       {/* Basic authenticated routes */}
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
+        <Route path="" element={<Dashboard />} />
         <Route path="/task-list" element={<TaskListPage />} />
       </Route>
 
