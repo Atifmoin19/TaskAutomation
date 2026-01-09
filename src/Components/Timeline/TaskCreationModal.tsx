@@ -20,6 +20,7 @@ import {
   NumberDecrementStepper,
   VStack,
   useToast,
+  HStack,
 } from "@chakra-ui/react";
 import { useAppDispatch, useAppSelector } from "app/hooks";
 import { addTask, updateTask } from "app/slices/scheduler.slice";
@@ -57,7 +58,8 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState(1);
+  const [durationHours, setDurationHours] = useState(0);
+  const [durationMinutes, setDurationMinutes] = useState(0);
   const [priority, setPriority] = useState<Priority>("P1");
   const [status, setStatus] = useState<string>("todo");
   const [assigneeId, setAssigneeId] = useState("");
@@ -71,7 +73,19 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
     if (editTaskData) {
       setTitle(editTaskData.task_name);
       setDescription(editTaskData.task_description || "");
-      setDuration(Number(editTaskData.task_duration || 1));
+
+      const rawDuration = editTaskData.task_duration || "1";
+      if (String(rawDuration).includes(":")) {
+        const [h, m] = String(rawDuration).split(":").map(Number);
+        setDurationHours(h || 0);
+        setDurationMinutes(m || 0);
+      } else {
+        const d = Number(rawDuration);
+        const totalMinutes = Math.round(d * 60);
+        setDurationHours(Math.floor(totalMinutes / 60));
+        setDurationMinutes(totalMinutes % 60);
+      }
+
       setPriority((editTaskData.task_priority as Priority) || "P1");
       setStatus(editTaskData.task_status || "todo");
       setAssigneeId(editTaskData.task_assigned_to || "");
@@ -79,7 +93,8 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
       // Reset or set defaults for new task
       setTitle("");
       setDescription("");
-      setDuration(1);
+      setDurationHours(0);
+      setDurationMinutes(0);
       setPriority("P1");
       setStatus("todo");
       // If not admin, default to self and lock
@@ -117,11 +132,27 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
       // without rewriting past history.
       const isPriorityUpgraded = newPriority < oldPriority;
 
+      // Check if total duration is at least 10 minutes
+      const totalEditMinutes =
+        Number(durationHours) * 60 + Number(durationMinutes);
+      if (totalEditMinutes < 10) {
+        toast({
+          title: "Task duration must be at least 10 minutes.",
+          status: "error",
+        });
+        return;
+      }
+
+      // Format as HH:MM
+      const finalDuration = `${String(durationHours).padStart(2, "0")}:${String(
+        durationMinutes
+      ).padStart(2, "0")}`;
+
       const updatedTask: Task = {
         ...editTaskData,
         task_name: title,
         task_description: description,
-        task_duration: String(duration),
+        task_duration: String(finalDuration),
         task_priority: priority,
         task_status: status,
         task_assigned_to: assigneeId || undefined,
@@ -141,11 +172,23 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
       }
     } else {
       // Create logic
+      const totalNewMinutes =
+        Number(durationHours) * 60 + Number(durationMinutes);
+      if (totalNewMinutes < 10) {
+        toast({
+          title: "Task duration must be at least 10 minutes.",
+          status: "error",
+        });
+        return;
+      }
+      const finalDuration = `${String(durationHours).padStart(2, "0")}:${String(
+        durationMinutes
+      ).padStart(2, "0")}`;
       const newTask: Task = {
         id: Math.random().toString(36).substr(2, 9),
         task_name: title,
         task_description: description,
-        task_duration: String(duration),
+        task_duration: String(finalDuration),
         task_priority: priority,
         task_assigned_to: assigneeId || undefined,
         task_status: status,
@@ -200,19 +243,44 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
             </FormControl>
 
             <FormControl isRequired>
-              <FormLabel>Duration (Hours)</FormLabel>
-              <NumberInput
-                min={0.5}
-                max={100}
-                value={duration}
-                onChange={(val) => setDuration(Number(val))}
-              >
-                <NumberInputField />
-                <NumberInputStepper>
-                  <NumberIncrementStepper />
-                  <NumberDecrementStepper />
-                </NumberInputStepper>
-              </NumberInput>
+              <FormLabel>Duration</FormLabel>
+              <HStack spacing={4}>
+                <FormControl>
+                  <FormLabel fontSize="xs" color="gray.500">
+                    Hours
+                  </FormLabel>
+                  <NumberInput
+                    min={0}
+                    max={100}
+                    value={durationHours}
+                    onChange={(val) => setDurationHours(Number(val))}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel fontSize="xs" color="gray.500">
+                    Minutes
+                  </FormLabel>
+                  <NumberInput
+                    min={0}
+                    max={59}
+                    value={durationMinutes}
+                    onChange={(val) => setDurationMinutes(Number(val))}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                </FormControl>
+              </HStack>
             </FormControl>
 
             <FormControl>

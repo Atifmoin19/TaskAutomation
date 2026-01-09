@@ -44,6 +44,13 @@ export const userApi = createApi({
       }),
       invalidatesTags: ["Task"],
     }),
+    deleteTask: builder.mutation<any, string>({
+      query: (id) => ({
+        url: `/tasks/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Task"],
+    }),
     login: builder.mutation<{ token: string, userData: any }, { emp_id: string, password?: string }>({
       query: (body) => ({
         url: "/login",
@@ -101,4 +108,4 @@ export const userApi = createApi({
   }),
 });
 
-export const { useUserListQuery, useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation, useUpdateUserMutation, useRegisterMutation } = userApi;
+export const { useUserListQuery, useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation, useUpdateUserMutation, useRegisterMutation } = userApi;

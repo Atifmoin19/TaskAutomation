@@ -1,4 +1,5 @@
 import { Task, Employee, CompanyConfig, TaskBlock } from "types";
+import { parseDurationToHours } from "Utils/common";
 
 export const getLocalDateKey = (d: Date) => {
     const year = d.getFullYear();
@@ -62,6 +63,36 @@ export const calculateSchedule = (
                     if (!occupiedSlots[dateKey]) occupiedSlots[dateKey] = [];
                     occupiedSlots[dateKey].push({ start: startHour, end: endHour });
                 });
+            } else if (task.task_status?.toLowerCase() === 'done') {
+                // Fallback for Done tasks without sessions: Synthesize a session to block the timeline
+                const endStr = task.completed_at || task.task_updated_at || new Date().toISOString();
+                const endTimeDate = new Date(endStr);
+
+                // Parse duration
+                const duration = task.time_spent
+                    ? parseDurationToHours(task.time_spent)
+                    : parseDurationToHours(task.task_duration || 1);
+
+                // Calculate estimated start time (End - Duration)
+                const startTimeDate = new Date(endTimeDate.getTime() - duration * 60 * 60 * 1000);
+
+                const dateKey = getLocalDateKey(startTimeDate);
+                const startHour = startTimeDate.getHours() + startTimeDate.getMinutes() / 60;
+                const endHour = endTimeDate.getHours() + endTimeDate.getMinutes() / 60;
+
+                // Add to schedule as fixed block
+                schedule[dev.emp_id].push({
+                    taskId: task.id,
+                    startTime: startHour,
+                    endTime: endHour,
+                    date: dateKey,
+                    status: 'completed',
+                    isSession: true
+                });
+
+                // Mark slot as occupied
+                if (!occupiedSlots[dateKey]) occupiedSlots[dateKey] = [];
+                occupiedSlots[dateKey].push({ start: startHour, end: endHour });
             }
         });
 
@@ -71,10 +102,15 @@ export const calculateSchedule = (
         myTasks.forEach(t => {
             const isDone = t.task_status?.toLowerCase() === 'done';
 
-            // If done, use time_spent (actual). If not done, use duration (planned).
-            let totalRequired = (isDone && t.time_spent)
-                ? Number(t.time_spent)
-                : Number(t.task_duration || 1);
+            // If done, we assume it's fully handled by the Session loop above (either real sessions or synthesized block)
+            // So we force totalRequired to 0 to prevent it from entering the simulation pool again.
+            if (isDone) {
+                remainingDuration[t.id] = 0;
+                return;
+            }
+
+            // If not done, calculate remaining
+            let totalRequired = parseDurationToHours(t.task_duration || 1);
 
             // Deduct time already spent in sessions
             let spentInSessions = 0;
@@ -88,30 +124,11 @@ export const calculateSchedule = (
                 });
             }
 
-
-
-            if (isDone) {
-                if (!t.task_sessions || t.task_sessions.length === 0) {
-                    // Legacy handle for Done tasks without sessions
-                    // Use completed_at or updated_at. If neither, fallback to created_at
-                    const doneDateStr = t.completed_at || t.task_updated_at || t.task_created_at;
-
-                    if (doneDateStr && new Date(doneDateStr).getTime() < startDate.getTime()) {
-                        totalRequired = 0;
-                    }
-                } else {
-                    totalRequired = 0; // Fully handled by sessions
-                }
-            } else {
-                // Task Not Done
-                totalRequired -= spentInSessions;
-            }
-
-            // Fix: Do not force 0.01 if the task is genuinely done or 0.
+            totalRequired -= spentInSessions;
             remainingDuration[t.id] = Math.max(0, totalRequired);
 
             // Only force a small block if task is NOT done but calculation resulted in <= 0
-            if (remainingDuration[t.id] <= EPSILON && !isDone) {
+            if (remainingDuration[t.id] <= EPSILON) {
                 remainingDuration[t.id] = 0.1;
             }
         });

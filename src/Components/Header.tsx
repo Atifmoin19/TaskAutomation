@@ -36,12 +36,43 @@ const Header = () => {
 
   const hasOpenedRef = useRef(false);
 
-  const pendingCount = tasks.filter(
-    (t) =>
-      currentUser &&
-      t.task_assigned_to === currentUser.emp_id &&
-      (t.task_status === "backlog" || t.task_status === "todo")
-  ).length;
+  const pendingCount = tasks.filter((t) => {
+    if (!currentUser || t.task_assigned_to !== currentUser.emp_id) return false;
+    if (t.task_status !== "backlog" && t.task_status !== "todo") return false;
+
+    // Filter Logic Synced with PendingTasksModal
+    const now = new Date();
+    // Helper to get effective start date
+    const getEffectiveStartDate = (task: typeof t) => {
+      if (task.task_assigned_date) return new Date(task.task_assigned_date);
+
+      const created = task.task_created_at
+        ? new Date(task.task_created_at)
+        : new Date();
+      const END_HOUR = 19;
+      const START_HOUR = 10;
+
+      const h = created.getHours() + created.getMinutes() / 60;
+      if (h >= END_HOUR) {
+        const nextDay = new Date(created);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDay.setHours(START_HOUR, 0, 0, 0);
+        return nextDay;
+      }
+      return created;
+    };
+
+    const effectiveStart = getEffectiveStartDate(t);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // Filter out future tasks
+    if (effectiveStart > now) return false;
+    // Filter out old past tasks
+    if (effectiveStart < todayMidnight) return false;
+
+    return true;
+  }).length;
 
   useEffect(() => {
     if (currentUser && pendingCount > 0 && !hasOpenedRef.current) {

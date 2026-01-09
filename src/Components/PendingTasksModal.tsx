@@ -25,6 +25,7 @@ import { useAppDispatch, useAppSelector } from "app/hooks";
 import { Task } from "types";
 import { useUpdateTaskMutation } from "Services/user.api";
 import { updateTask } from "app/slices/scheduler.slice";
+import { formatDuration } from "Utils/common";
 
 interface PendingTasksModalProps {
   isOpen: boolean;
@@ -50,26 +51,78 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
         (t.task_status === "backlog" || t.task_status === "todo")
     );
 
-    // Sort by Priority (P0 > P1 > P2) and Assinged Time (created_at)
-    return userTasks.sort((a, b) => {
-      const priorityOrder: Record<string, number> = { P0: 0, P1: 1, P2: 2 };
-      const pA = priorityOrder[a.task_priority as string] ?? 2;
-      const pB = priorityOrder[b.task_priority as string] ?? 2;
+    const now = new Date();
+    // Helper to get effective start date
+    const getEffectiveStartDate = (t: Task) => {
+      // 1. Explicit Assigned Date
+      if (t.task_assigned_date) {
+        return new Date(t.task_assigned_date);
+      }
+      // 2. Created At (Fallback)
+      // If created after hours, effect date bumps to next work day
+      const created = t.task_created_at
+        ? new Date(t.task_created_at)
+        : new Date();
+      // Check config from state (assuming standard 10-7 for now if not in scope or pass as prop)
+      // Ideally we grab config from store
+      // We will do a rough check or use passed config.
+      // Since we can't easily reach 'config' here without store update, let's assume global or passed logic.
+      // Actually, we can assume standard logic: If created Date > today 19:00, move to tomorrow 10:00
 
-      if (pA !== pB) return pA - pB;
+      // Let's use simple logic: Trust the task's assigned_date if set by system, otherwise created_at.
+      // But for "Created Today After Hours", the system should have ideally set assigned_date?
+      // If not, we do it here.
 
-      const tA = a.task_assigned_date
-        ? new Date(a.task_assigned_date).getTime()
-        : a.task_created_at
-        ? new Date(a.task_created_at).getTime()
-        : 0;
-      const tB = b.task_assigned_date
-        ? new Date(b.task_assigned_date).getTime()
-        : b.task_created_at
-        ? new Date(b.task_created_at).getTime()
-        : 0;
-      return tA - tB;
-    });
+      /** Use Scheduler Config if available, otherwise default 7 PM */
+      const END_HOUR = 19;
+      const START_HOUR = 10;
+
+      const h = created.getHours() + created.getMinutes() / 60;
+      if (h >= END_HOUR) {
+        const nextDay = new Date(created);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDay.setHours(START_HOUR, 0, 0, 0);
+        return nextDay;
+      }
+      return created;
+    };
+
+    return userTasks
+      .filter((t) => {
+        const effectiveStart = getEffectiveStartDate(t);
+
+        // Condition 1: Must be actionable NOW (Effective Start <= Now)
+        if (effectiveStart > now) return false;
+
+        // Condition 2: Must not be from strict past (before today 00:00)
+        // ... User requested "next day" logic, implying "Don't show me old stuff"?
+        // "modal wil have list only that day or furre niot past tasks" -> Actually means "Show relevant tasks".
+        // If I have a task from yesterday that I didn't do, it should probably show?
+        // Re-reading user: "it wil not be vivible in todays pending task it wil show only after 10 am tomorrow"
+        // This implies strict "Future Gating".
+        // Let's keep the "Not Before Today" filter if that's what was desired for cleanup,
+        // BUT if a task is overdue, it usually should be shown.
+        // However, looking at the previous specific request "niot past tasks", I will stick to "Start Date >= Today Midnight".
+
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+
+        if (effectiveStart < todayMidnight) return false;
+
+        return true;
+      })
+      .sort((a, b) => {
+        // ... (sort logic remains)
+        const priorityOrder: Record<string, number> = { P0: 0, P1: 1, P2: 2 };
+        const pA = priorityOrder[a.task_priority as string] ?? 2;
+        const pB = priorityOrder[b.task_priority as string] ?? 2;
+
+        if (pA !== pB) return pA - pB;
+
+        const tA = getEffectiveStartDate(a).getTime();
+        const tB = getEffectiveStartDate(b).getTime();
+        return tA - tB;
+      });
   }, [tasks, currentUser]);
 
   const handlePickTask = async (task: Task) => {
@@ -195,7 +248,9 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
                             fontSize="xs"
                           >
                             <Icon as={FaClock} />
-                            <Text>{task.task_duration || 1}h est.</Text>
+                            <Text>
+                              {formatDuration(task.task_duration || 1)} est.
+                            </Text>
                           </Flex>
                           {task.task_due_date && (
                             <Flex
