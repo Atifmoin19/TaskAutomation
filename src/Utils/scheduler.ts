@@ -16,7 +16,7 @@ export const calculateSchedule = (
     startDate: Date = new Date()
 ): Record<string, TaskBlock[]> => {
     const schedule: Record<string, TaskBlock[]> = {};
-    const EPSILON = 0.001; // Tolerance for float comparison
+    const EPSILON = 0.01; // Tolerance for float comparison (increased to catch gaps)
 
     developers.forEach(dev => {
         schedule[dev.emp_id] = [];
@@ -27,18 +27,21 @@ export const calculateSchedule = (
         // 1. Process Fixed Historical Sessions (from task_sessions)
         const occupiedSlots: Record<string, Array<{ start: number, end: number }>> = {};
 
+        // Helper to ensure timestamps are treated as UTC if missing timezone offset
+        // Ideally this should be handled by a date library or global utils, but locally ensuring consistency here.
+        const fixTime = (t: string) => {
+            if (!t) return t;
+            if (!t.endsWith('Z') && !t.includes('+')) {
+                return t + 'Z';
+            }
+            return t;
+        };
+
+
+
         myTasks.forEach(task => {
             if (task.task_sessions && task.task_sessions.length > 0) {
                 task.task_sessions.forEach(session => {
-                    // Ensure timestamps are treated as UTC if missing timezone offset
-                    const fixTime = (t: string) => {
-                        if (!t) return t;
-                        if (!t.endsWith('Z') && !t.includes('+')) {
-                            return t + 'Z';
-                        }
-                        return t;
-                    };
-
                     let endTime = session.end_time;
 
                     // Fallback: If task is done but session is open, close it at completed_at
@@ -128,9 +131,10 @@ export const calculateSchedule = (
         const remainingDuration: Record<string, number> = {};
 
         myTasks.forEach(t => {
-            const isDone = t.task_status?.toLowerCase() === 'done';
+            const status = t.task_status?.toLowerCase();
+            const isDone = status === 'done' || status === 'on-hold';
 
-            // If done, we assume it's fully handled by the Session loop above (either real sessions or synthesized block)
+            // If done or on-hold, we assume it's fully handled by the Session loop above (either real sessions or synthesized block)
             // So we force totalRequired to 0 to prevent it from entering the simulation pool again.
             if (isDone) {
                 remainingDuration[t.id] = 0;
@@ -145,8 +149,14 @@ export const calculateSchedule = (
             if (t.task_sessions) {
                 t.task_sessions.forEach(s => {
                     // Calculate duration in hours
-                    if (s.start_time && s.end_time) {
-                        const d = (new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / (1000 * 60 * 60);
+                    let eTime = s.end_time ? new Date(fixTime(s.end_time)) : null;
+                    // Strict fallback only if session status is "in-progress" or explicit null implies active
+                    if (!eTime && (s.status === 'in-progress' || !s.end_time)) {
+                        eTime = new Date();
+                    }
+
+                    if (s.start_time && eTime) {
+                        const d = (eTime.getTime() - new Date(fixTime(s.start_time)).getTime()) / (1000 * 60 * 60);
                         spentInSessions += d;
                     }
                 });
@@ -161,7 +171,75 @@ export const calculateSchedule = (
             }
         });
 
-        // 3. Multi-Day Simulation Loop for Remaining
+        // 2.5. Schedule "Tail" of Active Tasks Sequentially (Serial Planning)
+        // User Request: If multiple tasks are active, they should be queued based on Pick Up Time (Assigned Date).
+        // The first picked task gets immediate continuity. The second waits for the first to finish.
+
+        const activeTasksWithRemaining = myTasks.filter(t => remainingDuration[t.id] > EPSILON);
+
+        // Sort by Assigned Date (Pick Up Time) - Ascending (FIFO)
+        activeTasksWithRemaining.sort((a, b) => {
+            const tA = a.task_assigned_date ? new Date(a.task_assigned_date).getTime() : 0;
+            const tB = b.task_assigned_date ? new Date(b.task_assigned_date).getTime() : 0;
+            return tA - tB;
+        });
+
+        let chainEndTime = -1; // Tracks the end of the previous active task's planned block
+
+        activeTasksWithRemaining.forEach(t => {
+            // Check if this task has an active session
+            const blocks = schedule[dev.emp_id].filter(b => b.taskId === t.id && b.isSession);
+
+            if (blocks.length > 0) {
+                // Find latest session for this task
+                blocks.sort((a, b) => b.endTime - a.endTime);
+                const lastSession = blocks[0];
+                const tailDate = lastSession.date; // Assuming tail falls on same day
+
+                if (tailDate) {
+                    let tailStart = lastSession.endTime;
+
+                    // If we have a chain, ensuring this task starts AFTER the previous one
+                    if (chainEndTime !== -1 && tailStart < chainEndTime) {
+                        tailStart = chainEndTime;
+                    }
+
+                    const tailEnd = tailStart + remainingDuration[t.id];
+
+                    // Commit Block
+                    // Note: We are creating a 'planned' block, NOT extending session, because there might be a gap!
+                    // If gap is zero, it visual merges.
+
+                    // Check for adjacent merge (if no gap)
+                    const existingIdx = schedule[dev.emp_id].indexOf(lastSession);
+                    if (existingIdx !== -1 && Math.abs(lastSession.endTime - tailStart) < EPSILON) {
+                        // Merge with session if contiguous
+                        schedule[dev.emp_id][existingIdx].endTime = tailEnd;
+                    } else {
+                        // Create distinct block (separated by gap)
+                        schedule[dev.emp_id].push({
+                            taskId: t.id,
+                            startTime: tailStart,
+                            endTime: tailEnd,
+                            date: tailDate,
+                            status: 'planned'
+                        });
+                    }
+
+                    // Update Chain cursor
+                    chainEndTime = tailEnd;
+
+                    // Mark occupied
+                    if (!occupiedSlots[tailDate]) occupiedSlots[tailDate] = [];
+                    occupiedSlots[tailDate].push({ start: tailStart, end: tailEnd });
+
+                    // Mark as handled
+                    remainingDuration[t.id] = 0;
+                }
+            }
+        });
+
+        // 3. Multi-Day Simulation Loop for Remaining (Backlog tasks)
         let currentSimDate = new Date(startDate);
         let dayCount = 0;
         const MAX_DAYS = 60;
@@ -178,22 +256,23 @@ export const calculateSchedule = (
 
             let currentTaskId: string | null = null;
             let currentBlockStart = t;
-
             const commitBlock = (endTime: number) => {
                 if (currentTaskId && endTime > currentBlockStart + EPSILON) {
                     const existing = schedule[dev.emp_id];
-                    const last = existing[existing.length - 1];
 
-                    // Check overlap with fixed sessions (naive check)
-                    // In a real robust system we'd check every minute, here we rely on 't' skipping occupied.
+                    // Try to find a block to merge with (any block ending at current start)
+                    const mergeableIndex = existing.findIndex(b =>
+                        b.taskId === currentTaskId &&
+                        b.date === processingDateStr &&
+                        Math.abs(b.endTime - currentBlockStart) < EPSILON
+                    );
 
-                    if (
-                        last &&
-                        last.taskId === currentTaskId &&
-                        last.date === processingDateStr &&
-                        Math.abs(last.endTime - currentBlockStart) < EPSILON
-                    ) {
-                        last.endTime = endTime;
+                    if (mergeableIndex !== -1) {
+                        // Extend existing block
+                        existing[mergeableIndex].endTime = endTime;
+                        // If we extended a block that wasn't the last one, we might need to re-sort? 
+                        // Usually not strictly necessary for simple visualization, but good practice if we were relying on sort order later.
+                        // But here we just modify 'end', start remains same, so sort order (by start) preserves.
                     } else {
                         schedule[dev.emp_id].push({
                             taskId: currentTaskId,
@@ -278,10 +357,10 @@ export const calculateSchedule = (
                     const pA = priorityOrder[a.task_priority as string] ?? 2;
                     const pB = priorityOrder[b.task_priority as string] ?? 2;
                     if (pA !== pB) return pA - pB;
-                    // Sort by effective start time to prioritize earlier requests
+                    // Sort by effective start time (Newest/Latest Assigned first) to prioritize current focus
                     const tA = a.task_assigned_date ? new Date(a.task_assigned_date).getTime() : new Date(a.task_created_at || 0).getTime();
                     const tB = b.task_assigned_date ? new Date(b.task_assigned_date).getTime() : new Date(b.task_created_at || 0).getTime();
-                    return tA - tB;
+                    return tB - tA;
                 });
 
                 const bestTask = candidates[0];

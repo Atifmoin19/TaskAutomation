@@ -2,6 +2,8 @@ import { BaseQueryFn } from "@reduxjs/toolkit/dist/query";
 import axios, { type AxiosRequestConfig } from "axios";
 import { BASE_URL } from "../Utils/constants";
 
+import { resetStore } from "app/slices/scheduler.slice";
+
 export const getDefaultHeaders = ({
   token,
   // baseUrl,
@@ -54,9 +56,11 @@ export const axiosBaseQuery =
     unknown,
     unknown
   > =>
-    async ({ url, method, body, params = {}, headers, responseType }) => {
-      const { store } = await import("../app/store");
-      const token = store.getState().scheduler.token;
+
+    async ({ url, method, body, params = {}, headers, responseType }, { getState, dispatch }) => {
+
+      const state = getState() as any;
+      const token = state.scheduler?.token;
 
       let requestHeaders: any = headers;
       if (!requestHeaders) {
@@ -84,7 +88,9 @@ export const axiosBaseQuery =
 
         if (axios.isAxiosError(error)) {
           const err = error as any;
-
+          if (err.response?.status === 401) {
+            dispatch(resetStore())
+          }
           // if (decryptPayloadUrls?.includes(url)) {
           //   const res = decryptString({
           //     str: err.response?.data?.response,

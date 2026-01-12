@@ -17,7 +17,7 @@ export interface Task {
     id: string; // Frontend ID (might be task_id from backend?)
     task_name: string;
     task_description?: string;
-    task_status?: "backlog" | "todo" | "in-progress" | "done" | string;
+    task_status?: "backlog" | "todo" | "in-progress" | "done" | "on-hold" | string;
     task_assigned_to?: string; // emp_id
     task_assigned_by?: string;
     task_assigned_date?: string;

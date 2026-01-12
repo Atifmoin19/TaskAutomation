@@ -38,7 +38,12 @@ const Header = () => {
 
   const pendingCount = tasks.filter((t) => {
     if (!currentUser || t.task_assigned_to !== currentUser.emp_id) return false;
-    if (t.task_status !== "backlog" && t.task_status !== "todo") return false;
+    if (
+      t.task_status !== "backlog" &&
+      t.task_status !== "todo" &&
+      t.task_status !== "on-hold"
+    )
+      return false;
 
     // Filter Logic Synced with PendingTasksModal
     const now = new Date();

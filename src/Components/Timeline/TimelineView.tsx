@@ -27,6 +27,9 @@ import {
   FaCheck,
   FaEdit,
   FaTrash,
+  FaSearchPlus,
+  FaTimes,
+  FaPause,
 } from "react-icons/fa";
 import { useAppDispatch, useAppSelector } from "app/hooks";
 import {
@@ -129,6 +132,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
   }, [currentDate]);
 
   const [tick, setTick] = useState(0);
+  const [expandedHour, setExpandedHour] = useState<number | null>(null);
 
   // Update tick every minute to refresh schedule (extend overdue tasks)
   useEffect(() => {
@@ -162,12 +166,16 @@ const TimelineView: React.FC<TimelineViewProps> = ({
   }, [tasks, developers, config, tick, currentDate]);
 
   const timeSlots = useMemo(() => {
+    if (expandedHour !== null) {
+      // Zoomed View: Return 10-minute intervals
+      return [0, 10, 20, 30, 40, 50];
+    }
     const slots = [];
     for (let i = config.startHour; i < config.endHour; i++) {
       slots.push(i);
     }
     return slots;
-  }, [config]);
+  }, [config, expandedHour]);
 
   // Framer Motion Components
   // const MotionBox = motion(Box); remove unused var
@@ -302,6 +310,33 @@ const TimelineView: React.FC<TimelineViewProps> = ({
       toast({
         title: "Error Completing Task",
         description: "Failed to update task status on server.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleHoldTask = async (task: Task) => {
+    try {
+      const updatedTask = {
+        ...task,
+        task_status: "on-hold",
+        task_updated_at: new Date().toISOString(),
+      };
+      await updateTaskApi(updatedTask).unwrap();
+      dispatch(updateTask(updatedTask));
+      toast({
+        title: "Task On Hold",
+        description: "Task paused and moved to pending list.",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update task status.",
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -458,10 +493,37 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                   borderColor="gray.100"
                   pl={2}
                   py={2}
+                  position="relative"
+                  role="group"
+                  _hover={{ bg: "gray.50" }}
                 >
                   <Text fontSize="sm" color="gray.500" fontWeight="medium">
                     {hour > 12 ? hour - 12 : hour}
                   </Text>
+
+                  {expandedHour === null && (
+                    <IconButton
+                      aria-label="Zoom In"
+                      icon={<FaSearchPlus />}
+                      size="xs"
+                      variant="ghost"
+                      color="gray.400"
+                      position="absolute"
+                      top="50%"
+                      left="50%"
+                      transform="translate(-50%, -50%) scale(0.8)"
+                      opacity={0}
+                      _groupHover={{
+                        opacity: 1,
+                        transform: "translate(-50%, -50%) scale(1)",
+                      }}
+                      transition="all 0.2s"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedHour(hour);
+                      }}
+                    />
+                  )}
                 </Box>
               ))}
               {/* End Hour Label */}
@@ -488,6 +550,56 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                 </Text>
               </Box>
             </Flex>
+
+            {/* Zoomed Header Overwrite if active */}
+            {expandedHour !== null && (
+              <Flex
+                width="100%"
+                position="absolute"
+                top={0}
+                left={0}
+                bottom={0}
+                bg="white"
+                zIndex={2}
+              >
+                <Flex
+                  align="center"
+                  px={4}
+                  borderRight="1px solid"
+                  borderColor="gray.200"
+                  bg="blue.50"
+                >
+                  <Text fontWeight="bold" fontSize="lg" color="blue.700">
+                    {expandedHour > 12 ? expandedHour - 12 : expandedHour}:00
+                  </Text>
+                  <IconButton
+                    aria-label="Close Zoom"
+                    icon={<FaTimes />}
+                    size="xs"
+                    ml={2}
+                    colorScheme="red"
+                    variant="ghost"
+                    onClick={() => setExpandedHour(null)}
+                  />
+                </Flex>
+                <Flex flex={1}>
+                  {timeSlots.map((min) => (
+                    <Box
+                      key={min}
+                      flex={1}
+                      borderLeft="1px dashed"
+                      borderColor="gray.100"
+                      pl={2}
+                      py={2}
+                    >
+                      <Text fontSize="sm" color="gray.500">
+                        {min.toString().padStart(2, "0")}
+                      </Text>
+                    </Box>
+                  ))}
+                </Flex>
+              </Flex>
+            )}
           </Flex>
 
           {/* Rows */}
@@ -560,18 +672,42 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                       if (!task) return null;
 
                       // Visual range
-                      const totalVisualHours =
-                        config.endHour - config.startHour;
+                      let width, left;
 
-                      const width =
-                        (block.endTime - block.startTime) *
-                        (100 / totalVisualHours);
-                      const left =
-                        (block.startTime - config.startHour) *
-                        (100 / totalVisualHours);
+                      if (expandedHour !== null) {
+                        // ZOOMED VIEW CALCULATION
+                        // Viewport is 1 Hour (60 mins). Start is expandedHour.
+                        // Block times are in decimal hours (e.g. 13.5)
+
+                        // Check if block overlaps
+                        const start = Math.max(block.startTime, expandedHour);
+                        const end = Math.min(block.endTime, expandedHour + 1);
+
+                        if (start >= end) return null; // No overlap or out of view
+
+                        const duration = end - start; // 0.16 = 10 mins
+                        const offset = start - expandedHour;
+
+                        // 1 Hour = 100%
+                        width = duration * 100;
+                        left = offset * 100;
+                      } else {
+                        // NORMAL VIEW
+                        const totalVisualHours =
+                          config.endHour - config.startHour;
+                        width =
+                          (block.endTime - block.startTime) *
+                          (100 / totalVisualHours);
+                        left =
+                          (block.startTime - config.startHour) *
+                          (100 / totalVisualHours);
+                      }
 
                       if (left + width < 0 || left > 100) return null; // out of view
 
+                      if (left + width < 0 || left > 100) return null; // out of view
+
+                      const isOnHold = task.task_status === "on-hold";
                       const isCompleted = task.task_status === "done";
 
                       const getTaskColors = (
@@ -882,7 +1018,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                         />
                                       </>
                                     ) : (
-                                      !isCompleted && (
+                                      !isCompleted &&
+                                      !isOnHold && (
                                         <HStack spacing={2} pt={2}>
                                           <Button
                                             leftIcon={<FaEdit />}
@@ -896,6 +1033,21 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                           >
                                             Edit
                                           </Button>
+
+                                          {/* Hold Button */}
+                                          <Button
+                                            leftIcon={<FaPause />}
+                                            size="sm"
+                                            colorScheme="red"
+                                            flex={1}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleHoldTask(task);
+                                            }}
+                                          >
+                                            Hold
+                                          </Button>
+
                                           <Button
                                             leftIcon={<FaCheck />}
                                             size="sm"
@@ -921,6 +1073,20 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                           />
                                         </HStack>
                                       )
+                                    )}
+
+                                    {/* Read-Only State for On-Hold (Optional: Allow Delete?) */}
+                                    {isOnHold && (
+                                      <Text
+                                        fontSize="xs"
+                                        color="red.500"
+                                        textAlign="center"
+                                        mt={2}
+                                        fontStyle="italic"
+                                      >
+                                        Task is on hold. Resume from Pending
+                                        Tasks.
+                                      </Text>
                                     )}
 
                                     {isCompleted && (

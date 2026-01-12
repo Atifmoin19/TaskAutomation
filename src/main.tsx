@@ -32,7 +32,7 @@ createRoot(document.getElementById("root")!).render(
   <MyEmotionProvider nonce="bbbdbadfcdbafaffdbfcddccdbfafddb">
     <ChakraProvider resetCSS theme={theme}>
       <Provider store={store}>
-        <Router basename="/task-automation">
+        <Router basename="/task-automation/">
           <PersistGate loading={null} persistor={persistor}>
             <App />
           </PersistGate>

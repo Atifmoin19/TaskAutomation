@@ -48,7 +48,9 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
     const userTasks = tasks.filter(
       (t) =>
         t.task_assigned_to === currentUser.emp_id &&
-        (t.task_status === "backlog" || t.task_status === "todo")
+        (t.task_status === "backlog" ||
+          t.task_status === "todo" ||
+          t.task_status === "on-hold")
     );
 
     const now = new Date();
