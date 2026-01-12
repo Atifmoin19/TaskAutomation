@@ -186,6 +186,32 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
   const handlePickFromTimeline = async (task: Task) => {
     try {
+      // 1. Pause currently active task if exists (Preemption)
+      const activeTask = tasks.find(
+        (t) =>
+          t.task_assigned_to === task.task_assigned_to &&
+          t.task_status === "in-progress" &&
+          t.id !== task.id
+      );
+
+      if (activeTask) {
+        const pausedTask = {
+          ...activeTask,
+          task_status: "todo",
+        };
+        const activeResp = await updateTaskApi(pausedTask).unwrap();
+        dispatch(updateTask(activeResp || pausedTask));
+
+        toast({
+          title: "Previous Task Paused",
+          description: `Paused '${activeTask.task_name}' to start high priority task.`,
+          status: "info",
+          duration: 2000,
+          isClosable: true,
+        });
+      }
+
+      // 2. Start new task
       const updatedTask = {
         ...task,
         task_status: "in-progress",
@@ -203,14 +229,19 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         isClosable: true,
       });
     } catch (error) {
-      toast({ title: "Error", status: "error" });
+      console.error("Task update failed", error);
+      toast({ title: "Error updating task", status: "error" });
     }
   };
 
   const handleCompleteTask = async (task: Task) => {
     // Enforce Sequential Completion
+    // Modification: Allow P0 tasks or currently Active (in-progress) tasks to bypass this check.
+    const isPriorityOrActive =
+      task.task_priority === "P0" || task.task_status === "in-progress";
+
     const assigneeId = task.task_assigned_to;
-    if (assigneeId) {
+    if (assigneeId && !isPriorityOrActive) {
       const userSchedule = schedule[assigneeId] || [];
       // Find the first pending block (active or planned)
       // We rely on the fact that 'schedule' is generated in chronological order (mostly)

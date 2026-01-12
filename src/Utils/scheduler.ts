@@ -118,6 +118,12 @@ export const calculateSchedule = (
             }
         });
 
+        // Sort sessions chronologically to enable correct merging
+        schedule[dev.emp_id].sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.startTime - b.startTime;
+        });
+
         // 2. Setup Simulation State for Reporting/Remaining Work
         const remainingDuration: Record<string, number> = {};
 
@@ -185,8 +191,7 @@ export const calculateSchedule = (
                         last &&
                         last.taskId === currentTaskId &&
                         last.date === processingDateStr &&
-                        Math.abs(last.endTime - currentBlockStart) < EPSILON &&
-                        !last.isSession // Don't merge with fixed session
+                        Math.abs(last.endTime - currentBlockStart) < EPSILON
                     ) {
                         last.endTime = endTime;
                     } else {
