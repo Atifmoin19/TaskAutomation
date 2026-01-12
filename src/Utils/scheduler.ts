@@ -30,10 +30,32 @@ export const calculateSchedule = (
         myTasks.forEach(task => {
             if (task.task_sessions && task.task_sessions.length > 0) {
                 task.task_sessions.forEach(session => {
-                    if (!session.start_time || !session.end_time) return;
+                    // Ensure timestamps are treated as UTC if missing timezone offset
+                    const fixTime = (t: string) => {
+                        if (!t) return t;
+                        if (!t.endsWith('Z') && !t.includes('+')) {
+                            return t + 'Z';
+                        }
+                        return t;
+                    };
 
-                    const start = new Date(session.start_time);
-                    const end = new Date(session.end_time);
+                    let endTime = session.end_time;
+
+                    // Fallback: If task is done but session is open, close it at completed_at
+                    if (!endTime && task.task_status?.toLowerCase() === 'done' && task.completed_at) {
+                        endTime = task.completed_at;
+                    }
+
+                    // Fallback: If session is still open (active), visualize it up to "Now"
+                    if (!endTime && !session.end_time) {
+                        endTime = new Date().toISOString();
+                    }
+
+                    if (!session.start_time || !endTime) return;
+
+                    const start = new Date(fixTime(session.start_time));
+                    const end = new Date(fixTime(endTime));
+
                     const dateKey = getLocalDateKey(start);
 
                     const startHour = start.getHours() + start.getMinutes() / 60;

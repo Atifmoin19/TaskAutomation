@@ -491,6 +491,36 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                   bg="gray.50"
                   borderRadius="md"
                 >
+                  {/* Grid Lines Background */}
+                  <Flex
+                    position="absolute"
+                    top={0}
+                    left={0}
+                    right={0}
+                    bottom={0}
+                    zIndex={0}
+                    pointerEvents="none"
+                  >
+                    {timeSlots.map((_, i) => (
+                      <Box
+                        key={i}
+                        flex={1}
+                        borderLeft="1px dashed"
+                        borderColor="blackAlpha.200"
+                        h="100%"
+                      />
+                    ))}
+                    {/* End Line */}
+                    <Box
+                      borderLeft="1px dashed"
+                      borderColor="blackAlpha.200"
+                      h="100%"
+                      position="absolute"
+                      right={0}
+                      top={0}
+                    />
+                  </Flex>
+
                   {/* Render schedule blocks */}
                   {schedule[dev.emp_id]
                     ?.filter((block) => block.date === todayStr)
