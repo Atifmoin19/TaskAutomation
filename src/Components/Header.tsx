@@ -34,8 +34,6 @@ const Header = () => {
     onClose: onModalClose,
   } = useDisclosure();
 
-  const hasOpenedRef = useRef(false);
-
   const pendingCount = tasks.filter((t) => {
     if (!currentUser || t.task_assigned_to !== currentUser.emp_id) return false;
     if (
@@ -80,9 +78,10 @@ const Header = () => {
   }).length;
 
   useEffect(() => {
-    if (currentUser && pendingCount > 0 && !hasOpenedRef.current) {
+    const hasShown = sessionStorage.getItem("pendingModalShown");
+    if (currentUser && pendingCount > 0 && !hasShown) {
       onModalOpen();
-      hasOpenedRef.current = true;
+      sessionStorage.setItem("pendingModalShown", "true");
     }
   }, [currentUser, pendingCount, onModalOpen]);
 
@@ -92,6 +91,7 @@ const Header = () => {
       .unwrap()
       .then(() => {
         dispatch(resetStore()); // Clear user
+        sessionStorage.removeItem("pendingModalShown");
         navigate("/login", { replace: true });
         onClose();
       });

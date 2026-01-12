@@ -220,11 +220,20 @@ const TimelineView: React.FC<TimelineViewProps> = ({
       }
 
       // 2. Start new task
+      const nowFn = new Date().toISOString();
+      const newSession = {
+        start_time: nowFn,
+        end_time: null,
+        status: "in-progress",
+      };
+
       const updatedTask = {
         ...task,
         task_status: "in-progress",
-        task_updated_at: new Date().toISOString(),
-        task_assigned_date: new Date().toISOString(),
+        task_updated_at: nowFn,
+        task_assigned_date: nowFn,
+        // Manually create new session since backend fails to do so
+        task_sessions: [...(task.task_sessions || []), newSession],
       };
       const resp = await updateTaskApi(updatedTask).unwrap();
       // Use the response from backend which contains the new sessions
@@ -319,10 +328,23 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
   const handleHoldTask = async (task: Task) => {
     try {
+      const nowFn = new Date().toISOString();
+
+      // Manually close active session
+      const sessions = task.task_sessions ? [...task.task_sessions] : [];
+      const activeIdx = sessions.findIndex(
+        (s) => !s.end_time && s.status === "in-progress"
+      );
+      if (activeIdx !== -1) {
+        const updatedSession = { ...sessions[activeIdx], end_time: nowFn };
+        sessions[activeIdx] = updatedSession;
+      }
+
       const updatedTask = {
         ...task,
         task_status: "on-hold",
-        task_updated_at: new Date().toISOString(),
+        task_updated_at: nowFn,
+        task_sessions: sessions,
       };
       await updateTaskApi(updatedTask).unwrap();
       dispatch(updateTask(updatedTask));

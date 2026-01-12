@@ -24,6 +24,29 @@ export const calculateSchedule = (
         const myTasks = tasks.filter(t => t.task_assigned_to === dev.emp_id);
         if (myTasks.length === 0) return;
 
+        // Pre-calculation: Identify "Queued" Active Tasks (Same priority/active, but not first picked)
+        // These tasks are technically "In Progress" but conceptually "Waiting" for the first task to finish.
+        // We suppress their "Active Session" visualization to avoid a split visual (Start Blip ... Gap ... Planned).
+        const deferredTaskIds = new Set<string>();
+        const activeInProgTasks = tasks.filter(t =>
+            t.task_assigned_to === dev.emp_id &&
+            (t.task_status === 'in-progress' || t.task_status === 'in progress') &&
+            t.task_sessions?.some(s => !s.end_time) // Has active session
+        );
+
+        if (activeInProgTasks.length > 1) {
+            // Sort FIFO
+            activeInProgTasks.sort((a, b) => {
+                const tA = a.task_assigned_date ? new Date(a.task_assigned_date).getTime() : 0;
+                const tB = b.task_assigned_date ? new Date(b.task_assigned_date).getTime() : 0;
+                return tA - tB;
+            });
+            // Skip the first one (Active Focus), mark rest as Deferred
+            for (let i = 1; i < activeInProgTasks.length; i++) {
+                deferredTaskIds.add(activeInProgTasks[i].id);
+            }
+        }
+
         // 1. Process Fixed Historical Sessions (from task_sessions)
         const occupiedSlots: Record<string, Array<{ start: number, end: number }>> = {};
 
@@ -42,6 +65,11 @@ export const calculateSchedule = (
         myTasks.forEach(task => {
             if (task.task_sessions && task.task_sessions.length > 0) {
                 task.task_sessions.forEach(session => {
+                    // Suppress Active Session visual for Deferred (Queued) tasks
+                    if (!session.end_time && deferredTaskIds.has(task.id)) {
+                        return;
+                    }
+
                     let endTime = session.end_time;
 
                     // Fallback: If task is done but session is open, close it at completed_at
@@ -171,9 +199,9 @@ export const calculateSchedule = (
             }
         });
 
-        // 2.5. Schedule "Tail" of Active Tasks Sequentially (Serial Planning)
-        // User Request: If multiple tasks are active, they should be queued based on Pick Up Time (Assigned Date).
-        // The first picked task gets immediate continuity. The second waits for the first to finish.
+        // 2.5. Schedule "Tail" of Active Tasks Sequentially (Queue Mode)
+        // User Request: If multiple tasks are active, schedule them strictly sequentially based on "Pick Up Time".
+        // The first picked task runs first. The second picked task starts ONLY after the first one finishes.
 
         const activeTasksWithRemaining = myTasks.filter(t => remainingDuration[t.id] > EPSILON);
 
@@ -184,7 +212,7 @@ export const calculateSchedule = (
             return tA - tB;
         });
 
-        let chainEndTime = -1; // Tracks the end of the previous active task's planned block
+        let chainEndTime = -1; // Tracks the end of the chain
 
         activeTasksWithRemaining.forEach(t => {
             // Check if this task has an active session
@@ -199,24 +227,22 @@ export const calculateSchedule = (
                 if (tailDate) {
                     let tailStart = lastSession.endTime;
 
-                    // If we have a chain, ensuring this task starts AFTER the previous one
-                    if (chainEndTime !== -1 && tailStart < chainEndTime) {
+                    // Enforce Serial Chain
+                    // If the chain cursor is ahead of our session end, we must wait.
+                    if (chainEndTime !== -1 && chainEndTime > tailStart + EPSILON) {
                         tailStart = chainEndTime;
                     }
 
                     const tailEnd = tailStart + remainingDuration[t.id];
 
                     // Commit Block
-                    // Note: We are creating a 'planned' block, NOT extending session, because there might be a gap!
-                    // If gap is zero, it visual merges.
-
-                    // Check for adjacent merge (if no gap)
+                    // Check for adjacent merge (if we didn't have to wait)
                     const existingIdx = schedule[dev.emp_id].indexOf(lastSession);
                     if (existingIdx !== -1 && Math.abs(lastSession.endTime - tailStart) < EPSILON) {
-                        // Merge with session if contiguous
+                        // Merge with session if contiguous (Start immediately)
                         schedule[dev.emp_id][existingIdx].endTime = tailEnd;
                     } else {
-                        // Create distinct block (separated by gap)
+                        // Create distinct planned block (Deferred/Queued)
                         schedule[dev.emp_id].push({
                             taskId: t.id,
                             startTime: tailStart,
@@ -226,10 +252,10 @@ export const calculateSchedule = (
                         });
                     }
 
-                    // Update Chain cursor
+                    // Update Chain Cursor
                     chainEndTime = tailEnd;
 
-                    // Mark occupied
+                    // Mark occupied in schedule slots
                     if (!occupiedSlots[tailDate]) occupiedSlots[tailDate] = [];
                     occupiedSlots[tailDate].push({ start: tailStart, end: tailEnd });
 
