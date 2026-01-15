@@ -129,20 +129,11 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
 
   const handlePickTask = async (task: Task) => {
     try {
-      const nowFn = new Date().toISOString();
-      const newSession = {
-        start_time: nowFn,
-        end_time: null,
-        status: "in-progress",
-      };
-
       const updatedTask = {
         ...task,
         task_status: "in-progress",
-        task_updated_at: nowFn,
-        task_assigned_date: nowFn, // Reset start time for simulation
-        // Manual session creation
-        task_sessions: [...(task.task_sessions || []), newSession],
+        task_updated_at: new Date().toISOString(),
+        task_assigned_date: new Date().toISOString(), // Reset start time for simulation
       };
 
       const resp = await updateTaskApi(updatedTask).unwrap();

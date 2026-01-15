@@ -30,6 +30,7 @@ export interface Task {
     task_duration?: string; // "4" or "4 hours"
     time_spent?: number; // Hours spent as float
     completed_at?: string; // ISO String
+    remaining_seconds?: number; // Backend calculated remaining time
     task_sessions?: TaskSession[];
 }
 
@@ -53,7 +54,7 @@ export interface TaskBlock {
     startTime: number; // Hour of day (e.g. 9.5 for 9:30 AM)
     endTime: number;
     date: string;
-    status?: 'completed' | 'backlog' | 'in-progress' | 'planned';
+    status?: 'completed' | 'backlog' | 'in-progress' | 'planned' | 'on-hold';
     isSession?: boolean;
 }
 

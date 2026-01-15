@@ -159,7 +159,10 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     // Filter tasks for Timeline: Only show "in-progress" and "done"
     // The user requirement: "now in timeline only in progress or done task wil be listed notign else"
     const timelineTasks = tasks.filter(
-      (t) => t.task_status === "in-progress" || t.task_status === "done"
+      (t) =>
+        t.task_status === "in-progress" ||
+        t.task_status === "done" ||
+        t.task_status === "todo"
     );
 
     return calculateSchedule(timelineTasks, developers, config, simStartDate);
@@ -220,20 +223,11 @@ const TimelineView: React.FC<TimelineViewProps> = ({
       }
 
       // 2. Start new task
-      const nowFn = new Date().toISOString();
-      const newSession = {
-        start_time: nowFn,
-        end_time: null,
-        status: "in-progress",
-      };
-
       const updatedTask = {
         ...task,
         task_status: "in-progress",
-        task_updated_at: nowFn,
-        task_assigned_date: nowFn,
-        // Manually create new session since backend fails to do so
-        task_sessions: [...(task.task_sessions || []), newSession],
+        task_updated_at: new Date().toISOString(),
+        task_assigned_date: new Date().toISOString(),
       };
       const resp = await updateTaskApi(updatedTask).unwrap();
       // Use the response from backend which contains the new sessions
@@ -328,23 +322,10 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
   const handleHoldTask = async (task: Task) => {
     try {
-      const nowFn = new Date().toISOString();
-
-      // Manually close active session
-      const sessions = task.task_sessions ? [...task.task_sessions] : [];
-      const activeIdx = sessions.findIndex(
-        (s) => !s.end_time && s.status === "in-progress"
-      );
-      if (activeIdx !== -1) {
-        const updatedSession = { ...sessions[activeIdx], end_time: nowFn };
-        sessions[activeIdx] = updatedSession;
-      }
-
       const updatedTask = {
         ...task,
         task_status: "on-hold",
-        task_updated_at: nowFn,
-        task_sessions: sessions,
+        task_updated_at: new Date().toISOString(),
       };
       await updateTaskApi(updatedTask).unwrap();
       dispatch(updateTask(updatedTask));
@@ -742,6 +723,14 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                             border: "red.500",
                             hover: "red.100",
                             gradient: "linear(to-r, red.50, red.100)",
+                          };
+                        }
+                        if (status === "on-hold") {
+                          return {
+                            bg: "yellow.50",
+                            border: "yellow.500",
+                            hover: "yellow.100",
+                            gradient: "linear(to-r, yellow.50, yellow.100)",
                           };
                         }
                         if (isCompleted) {
