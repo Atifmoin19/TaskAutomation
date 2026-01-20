@@ -82,7 +82,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
     // Filter out Rank 4 (EM) and Rank 5 (CTO/SuperAdmin/Owner/Product) from timeline
     // They cannot be assigned tasks.
     const assignableDevs = allDevelopers.filter(
-      (d) => (ROLE_RANK[d.emp_designation] || 0) < 4
+      (d) => (ROLE_RANK[d.emp_designation] || 0) < 4,
     );
 
     // If filter is active, show only reportees of that manager
@@ -96,7 +96,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
       // Show direct reports only (since self is likely Rank >> 4, self is filtered out)
       return assignableDevs.filter(
         (d) =>
-          d.manager_id === currentUser.emp_id || d.emp_id === currentUser.emp_id
+          d.manager_id === currentUser.emp_id ||
+          d.emp_id === currentUser.emp_id,
       );
     }
 
@@ -162,7 +163,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
       (t) =>
         t.task_status === "in-progress" ||
         t.task_status === "done" ||
-        t.task_status === "todo"
+        t.task_status === "todo" ||
+        t.task_status === "on-hold",
     );
 
     return calculateSchedule(timelineTasks, developers, config, simStartDate);
@@ -202,7 +204,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
         (t) =>
           t.task_assigned_to === task.task_assigned_to &&
           t.task_status === "in-progress" &&
-          t.id !== task.id
+          t.id !== task.id,
       );
 
       if (activeTask) {
@@ -270,7 +272,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
       if (firstPendingBlock && firstPendingBlock.taskId !== task.id) {
         const blockingTask = tasks.find(
-          (t) => t.id === firstPendingBlock.taskId
+          (t) => t.id === firstPendingBlock.taskId,
         );
         toast({
           title: "Cannot Complete Task",
@@ -715,7 +717,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
                       const getTaskColors = (
                         priority?: string,
-                        status?: string
+                        status?: string,
                       ) => {
                         if (status === "backlog") {
                           return {
@@ -775,7 +777,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
                       const colors = getTaskColors(
                         task.task_priority as string,
-                        block.status
+                        block.status,
                       );
 
                       return (
@@ -793,7 +795,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                               left={`${Math.max(0, left)}%`}
                               width={`${Math.min(
                                 100 - Math.max(0, left),
-                                width
+                                width,
                               )}%`}
                               height="80%"
                               top="15%"
@@ -881,8 +883,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                           task.task_priority === "P0"
                                             ? "red"
                                             : task.task_priority === "P1"
-                                            ? "orange"
-                                            : "green"
+                                              ? "orange"
+                                              : "green"
                                         }
                                         variant="subtle"
                                         borderRadius="full"
@@ -966,7 +968,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                           />
                                           <Text fontSize="xs" color="gray.600">
                                             {new Date(
-                                              task.task_due_date
+                                              task.task_due_date,
                                             ).toLocaleDateString()}
                                           </Text>
                                         </Flex>

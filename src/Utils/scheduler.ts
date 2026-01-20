@@ -77,6 +77,10 @@ export const calculateSchedule = (
                     if (!endTime && task.task_status?.toLowerCase() === 'done' && task.completed_at) {
                         endTime = task.completed_at;
                     }
+                    // Fallback: If task is on-hold but session is open, close it at updated_at
+                    if (!endTime && task.task_status === 'on-hold' && task.task_updated_at) {
+                        endTime = task.task_updated_at;
+                    }
 
                     // Fallback: If session is still open (active), visualize it up to "Now"
                     if (!endTime && !session.end_time) {
@@ -98,9 +102,14 @@ export const calculateSchedule = (
                     let sessionStatus = session.status_label || session.completion_status || session.status;
 
                     // Fallback mapping if backend sends different strings
-                    if (sessionStatus === 'in-progress' || sessionStatus === 'in progress') sessionStatus = 'planned'; // Show as normal/planned
+                    if (sessionStatus === 'in-progress' || sessionStatus === 'in progress') {
+                        sessionStatus = endTime ? 'completed' : 'planned';
+                    }
                     if (!sessionStatus) {
-                        sessionStatus = task.task_status === 'done' ? 'completed' : 'backlog';
+                        // If session has ended or task is done/on-hold, treat as completed (work done)
+                        sessionStatus = (task.task_status === 'done' || task.task_status === 'on-hold' || endTime)
+                            ? 'completed'
+                            : 'backlog';
                     }
 
                     // Add to schedule

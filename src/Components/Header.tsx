@@ -26,7 +26,9 @@ import { useState, useEffect, useRef } from "react";
 const Header = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { currentUser, tasks } = useAppSelector((state) => state.scheduler);
+  const { currentUser, tasks, config } = useAppSelector(
+    (state) => state.scheduler,
+  );
   const { isOpen, onOpen, onClose } = useDisclosure();
   const {
     isOpen: isModalOpen,
@@ -36,6 +38,12 @@ const Header = () => {
 
   const pendingCount = tasks.filter((t) => {
     if (!currentUser || t.task_assigned_to !== currentUser.emp_id) return false;
+
+    // Check Working Hours
+    const now = new Date();
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    if (currentHour >= config.endHour) return false;
+
     if (
       t.task_status !== "backlog" &&
       t.task_status !== "todo" &&
@@ -44,7 +52,6 @@ const Header = () => {
       return false;
 
     // Filter Logic Synced with PendingTasksModal
-    const now = new Date();
     // Helper to get effective start date
     const getEffectiveStartDate = (task: typeof t) => {
       if (task.task_assigned_date) return new Date(task.task_assigned_date);
@@ -52,8 +59,9 @@ const Header = () => {
       const created = task.task_created_at
         ? new Date(task.task_created_at)
         : new Date();
-      const END_HOUR = 19;
-      const START_HOUR = 10;
+
+      const END_HOUR = config.endHour;
+      const START_HOUR = config.startHour;
 
       const h = created.getHours() + created.getMinutes() / 60;
       if (h >= END_HOUR) {
