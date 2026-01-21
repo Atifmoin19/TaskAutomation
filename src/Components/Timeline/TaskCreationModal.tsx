@@ -21,6 +21,7 @@ import {
   VStack,
   useToast,
   HStack,
+  Checkbox,
 } from "@chakra-ui/react";
 import { useAppDispatch, useAppSelector } from "app/hooks";
 import { addTask, updateTask } from "app/slices/scheduler.slice";
@@ -63,6 +64,25 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
   const [priority, setPriority] = useState<Priority>("P1");
   const [status, setStatus] = useState<string>("todo");
   const [assigneeId, setAssigneeId] = useState("");
+  const [isEod, setIsEod] = useState(false);
+
+  const { config } = useAppSelector((state) => state.scheduler);
+
+  const handleEodCheck = (checked: boolean) => {
+    setIsEod(checked);
+    if (checked) {
+      const now = new Date();
+      const currentHour = now.getHours() + now.getMinutes() / 60;
+      const endHour = config.endHour;
+
+      const remaining = Math.max(0, endHour - currentHour);
+      const hours = Math.floor(remaining);
+      const minutes = Math.round((remaining - hours) * 60);
+
+      setDurationHours(hours);
+      setDurationMinutes(minutes);
+    }
+  };
 
   const isAdmin =
     currentUser &&
@@ -89,6 +109,7 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
       setPriority((editTaskData.task_priority as Priority) || "P1");
       setStatus(editTaskData.task_status || "todo");
       setAssigneeId(editTaskData.task_assigned_to || "");
+      setIsEod(false);
     } else {
       // Reset or set defaults for new task
       setTitle("");
@@ -97,6 +118,7 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
       setDurationMinutes(0);
       setPriority("P1");
       setStatus("todo");
+      setIsEod(false);
       // If not admin, default to self and lock
       if (currentUser && !isAdmin) {
         setAssigneeId(currentUser.emp_id);
@@ -145,7 +167,7 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
 
       // Format as HH:MM
       const finalDuration = `${String(durationHours).padStart(2, "0")}:${String(
-        durationMinutes
+        durationMinutes,
       ).padStart(2, "0")}`;
 
       const updatedTask: Task = {
@@ -182,7 +204,7 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
         return;
       }
       const finalDuration = `${String(durationHours).padStart(2, "0")}:${String(
-        durationMinutes
+        durationMinutes,
       ).padStart(2, "0")}`;
       const newTask: Task = {
         id: Math.random().toString(36).substr(2, 9),
@@ -254,6 +276,7 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
                     max={100}
                     value={durationHours}
                     onChange={(val) => setDurationHours(Number(val))}
+                    isDisabled={isEod}
                   >
                     <NumberInputField />
                     <NumberInputStepper>
@@ -272,6 +295,7 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
                     max={59}
                     value={durationMinutes}
                     onChange={(val) => setDurationMinutes(Number(val))}
+                    isDisabled={isEod}
                   >
                     <NumberInputField />
                     <NumberInputStepper>
@@ -281,6 +305,15 @@ const TaskCreationModal: React.FC<TaskCreationModalProps> = ({
                   </NumberInput>
                 </FormControl>
               </HStack>
+              <Checkbox
+                mt={2}
+                isChecked={isEod}
+                onChange={(e) => handleEodCheck(e.target.checked)}
+                size="sm"
+                colorScheme="blue"
+              >
+                Till End of Day
+              </Checkbox>
             </FormControl>
 
             <FormControl>

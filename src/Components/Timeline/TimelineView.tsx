@@ -317,10 +317,31 @@ const TimelineView: React.FC<TimelineViewProps> = ({
 
   const handleHoldTask = async (task: Task) => {
     try {
+      const now = new Date();
+      let addedDuration = 0;
+      // Calculate time spent in this active session before holding
+      if (task.task_status === "in-progress" && task.task_assigned_date) {
+        addedDuration = calculateBusinessDuration(
+          new Date(task.task_assigned_date),
+          now,
+          config,
+        );
+      }
+      // Parse existing time_spent (handle string/number)
+      const currentSpent = task.time_spent
+        ? typeof task.time_spent === "string" && task.time_spent.includes(":")
+          ? Number(task.time_spent.split(":")[0]) +
+            Number(task.time_spent.split(":")[1]) / 60
+          : Number(task.time_spent)
+        : 0;
+
+      const newTotalSpent = currentSpent + addedDuration;
+
       const updatedTask = {
         ...task,
         task_status: "on-hold",
         task_updated_at: new Date().toISOString(),
+        time_spent: newTotalSpent,
       };
       await updateTaskApi(updatedTask).unwrap();
       dispatch(updateTask(updatedTask));
@@ -947,9 +968,12 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                             }
                                           >
                                             Actual:{" "}
-                                            {task.time_spent
-                                              ? formatDuration(task.time_spent)
-                                              : "-"}
+                                            {formatDuration(
+                                              task.time_spent ||
+                                                (isCompleted
+                                                  ? task.task_duration
+                                                  : 0),
+                                            )}
                                           </Text>
                                         </Flex>
                                       </Flex>

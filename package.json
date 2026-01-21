@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --mode dev",
     "start:dev": "vite --mode dev",
+    "start:localback": "vite --mode localback",
     "build": "vite build",
     "build:dev": "vite build --mode dev",
     "tar:dev": "vite build --mode dev && tar --no-xattrs -cvzf automation_build_dev_$(date +%Y%m%d%H%M%S).tar.gz dist",
