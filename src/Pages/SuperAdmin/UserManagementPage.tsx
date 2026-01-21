@@ -31,24 +31,28 @@ import {
   useUpdateUserMutation,
   useLazyUserListQuery,
   useUserListQuery,
+  useDeleteUserMutation,
+  useBulkDeleteUsersMutation,
 } from "Services/user.api";
 import { DESIGNATIONS, ROLE_RANK } from "Utils/constants";
 import { useAppSelector } from "app/hooks";
-import { FaEdit } from "react-icons/fa";
+import { FaEdit, FaTrash } from "react-icons/fa";
 import { Employee } from "types";
 
 const UserManagementPage: React.FC = () => {
   const [updateUser] = useUpdateUserMutation();
+  const [deleteUser] = useDeleteUserMutation();
+  const [bulkDeleteUsers] = useBulkDeleteUsersMutation();
   const toast = useToast();
 
   const { developers: reduxDevelopers } = useAppSelector(
-    (state) => state.scheduler
+    (state) => state.scheduler,
   );
 
   // Fetch users specifically for the list
-  const { data: userList } = useUserListQuery(
+  const { data: userList, refetch } = useUserListQuery(
     {},
-    { refetchOnMountOrArgChange: true }
+    { refetchOnMountOrArgChange: true },
   );
 
   const usersToDisplay = userList || [];
@@ -65,6 +69,9 @@ const UserManagementPage: React.FC = () => {
   } = useDisclosure();
   const [editingUser, setEditingUser] = useState<Employee | null>(null);
 
+  // Selection State
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
   // Edit Form State
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -77,7 +84,7 @@ const UserManagementPage: React.FC = () => {
   const editRank = ROLE_RANK[editDesignation] || 0;
   const showEditManager = editRank < 5;
   const validEditManagers = potentialManagers.filter(
-    (m: Employee) => (ROLE_RANK[m.emp_designation] || 0) > editRank
+    (m: Employee) => (ROLE_RANK[m.emp_designation] || 0) > editRank,
   );
 
   const handleEditClick = (user: Employee) => {
@@ -115,8 +122,52 @@ const UserManagementPage: React.FC = () => {
       await updateUser(updatedUser).unwrap();
       toast({ title: "User Updated Successfully", status: "success" });
       onEditClose();
+      refetch();
     } catch (error) {
       toast({ title: "Failed to update user", status: "error" });
+    }
+  };
+
+  // Selection Handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allIds = potentialManagers.map((u: Employee) => u.emp_id);
+      setSelectedUserIds(allIds);
+    } else {
+      setSelectedUserIds([]);
+    }
+  };
+
+  const handleSelectOne = (empId: string) => {
+    if (selectedUserIds.includes(empId)) {
+      setSelectedUserIds(selectedUserIds.filter((id) => id !== empId));
+    } else {
+      setSelectedUserIds([...selectedUserIds, empId]);
+    }
+  };
+
+  // Delete Handlers
+  const handleDeleteOne = async (empId: string) => {
+    if (!window.confirm(`Are you sure you want to delete user ${empId}?`))
+      return;
+    try {
+      await deleteUser(empId).unwrap();
+      toast({ title: "User Deleted", status: "success" });
+      refetch();
+    } catch (e) {
+      toast({ title: "Delete Failed", status: "error" });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selectedUserIds.length} users?`)) return;
+    try {
+      await bulkDeleteUsers({ emp_ids: selectedUserIds }).unwrap();
+      toast({ title: "Bulk Delete Successful", status: "success" });
+      setSelectedUserIds([]);
+      refetch();
+    } catch (e) {
+      toast({ title: "Bulk Delete Failed", status: "error" });
     }
   };
 
@@ -133,6 +184,17 @@ const UserManagementPage: React.FC = () => {
           User Management
         </Heading>
 
+        {selectedUserIds.length > 0 && (
+          <Button
+            colorScheme="red"
+            mb={4}
+            onClick={handleBulkDelete}
+            leftIcon={<FaTrash />}
+          >
+            Delete Selected ({selectedUserIds.length})
+          </Button>
+        )}
+
         <Box
           bg="white"
           p={6}
@@ -145,6 +207,16 @@ const UserManagementPage: React.FC = () => {
           <Table variant="simple" size="sm">
             <Thead>
               <Tr>
+                <Th>
+                  <input
+                    type="checkbox"
+                    onChange={handleSelectAll}
+                    checked={
+                      potentialManagers.length > 0 &&
+                      selectedUserIds.length === potentialManagers.length
+                    }
+                  />
+                </Th>
                 <Th>Name</Th>
                 <Th>Emp ID</Th>
                 <Th>Designation</Th>
@@ -156,6 +228,13 @@ const UserManagementPage: React.FC = () => {
             <Tbody>
               {potentialManagers?.map((user: Employee) => (
                 <Tr key={user.emp_id} _hover={{ bg: "gray.50" }}>
+                  <Td>
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(user.emp_id)}
+                      onChange={() => handleSelectOne(user.emp_id)}
+                    />
+                  </Td>
                   <Td fontWeight="medium">{user.emp_name}</Td>
                   <Td>{user.emp_id}</Td>
                   <Td>{user.emp_designation}</Td>
@@ -168,7 +247,16 @@ const UserManagementPage: React.FC = () => {
                       size="sm"
                       colorScheme="blue"
                       variant="ghost"
+                      mr={2}
                       onClick={() => handleEditClick(user)}
+                    />
+                    <IconButton
+                      aria-label="Delete User"
+                      icon={<FaTrash />}
+                      size="sm"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDeleteOne(user.emp_id)}
                     />
                   </Td>
                 </Tr>

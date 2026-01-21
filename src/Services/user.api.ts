@@ -103,9 +103,24 @@ export const userApi = createApi({
         body: body,
       }),
     }),
+    deleteUser: builder.mutation<any, string>({
+      query: (emp_id) => ({
+        url: `/user/${emp_id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["User"],
+    }),
+    bulkDeleteUsers: builder.mutation<any, { emp_ids: string[] }>({
+      query: (body) => ({
+        url: "/users/bulk-delete",
+        method: "POST",
+        body: body,
+      }),
+      invalidatesTags: ["User"],
+    }),
 
 
   }),
 });
 
-export const { useUserListQuery, useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation, useUpdateUserMutation, useRegisterMutation } = userApi;
+export const { useUserListQuery, useLazyUserListQuery, useLazyTaskListQuery, useTaskListQuery, useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, useLazyGetUserQuery, useLoginMutation, useLogoutMutation, useCreateUserMutation, useUploadTasksMutation, useUploadUsersMutation, useUpdateUserMutation, useRegisterMutation, useDeleteUserMutation, useBulkDeleteUsersMutation } = userApi;
