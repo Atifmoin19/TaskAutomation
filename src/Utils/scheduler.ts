@@ -135,9 +135,15 @@ export const calculateSchedule = (
                     for (let i = 1; i < normalizedSessions.length; i++) {
                         const next = normalizedSessions[i];
 
-                        // Merge condition: Same status AND Same day
-                        // Implicitly merges gaps if they are between two sessions of same status/day
-                        if (next.status === current.status && next.dateKey === current.dateKey) {
+                        // Merge condition: Same status AND Same day AND Contiguous (gap < 1 min)
+                        // We must NOT merge if there is a significant gap (e.g. worked on another task)
+                        const gapMs = next.start.getTime() - current.end.getTime();
+
+                        if (
+                            next.status === current.status &&
+                            next.dateKey === current.dateKey &&
+                            gapMs < 60 * 1000 // Only merge if gap is less than 1 minute
+                        ) {
                             // Extend completion date to the latest end time
                             if (next.end.getTime() > current.end.getTime()) {
                                 current.end = next.end;
@@ -576,60 +582,49 @@ export const calculateSchedule = (
     Object.keys(schedule).forEach(empId => {
         let blocks = schedule[empId];
 
-        // 4a. MERGE Strategy for Active Tasks:
-        // User Request: "if that task is in progress do not show partition... show full width of task"
-        // We group all blocks (History + Planned) for 'in-progress' tasks on the same day and merge them.
+        // 4a. MERGE Strategy for Active Tasks (Refined):
+        // We only merge blocks of the same 'in-progress' task if they are ADJACENT/CONTIGUOUS.
+        // This prevents swallowing gaps where other tasks were performed.
 
-        const blocksByTaskDate: Record<string, TaskBlock[]> = {};
-        const taskStatusMap: Record<string, string> = {};
-
-        blocks.forEach(b => {
-            const key = `${b.taskId}_${b.date}`;
-            if (!blocksByTaskDate[key]) blocksByTaskDate[key] = [];
-            blocksByTaskDate[key].push(b);
-
-            if (!taskStatusMap[b.taskId]) {
-                const t = tasks.find(tsk => tsk.id === b.taskId);
-                if (t) taskStatusMap[b.taskId] = t.task_status?.toLowerCase() || '';
-            }
+        // First, ensure strictly sorted by time to enable adjacency check
+        blocks.sort((a, b) => {
+            if (a.date !== b.date) return a.date.localeCompare(b.date);
+            return a.startTime - b.startTime;
         });
 
         const mergedBlocks: TaskBlock[] = [];
-        const processedKeys = new Set<string>();
+        if (blocks.length > 0) {
+            let current = blocks[0];
 
-        // Reconstruct blocks list with merged active tasks
-        blocks.forEach(b => {
-            const key = `${b.taskId}_${b.date}`;
-            const status = taskStatusMap[b.taskId];
-            const isActive = status === 'in-progress' || status === 'in progress';
+            // Helper to check if task is active
+            const isTaskActive = (tid: string) => {
+                const t = tasks.find(tsk => tsk.id === tid);
+                return t && (t.task_status === 'in-progress' || t.task_status === 'in progress');
+            };
 
-            if (isActive) {
-                if (processedKeys.has(key)) return; // Already effectively processed
+            for (let i = 1; i < blocks.length; i++) {
+                const next = blocks[i];
+                const isSameTask = current.taskId === next.taskId;
+                const isSameDay = current.date === next.date;
 
-                const group = blocksByTaskDate[key];
-                // Merge this group into one block
-                let minStart = group[0].startTime;
-                let maxEnd = group[0].endTime;
+                // Check if contiguous (Next Start ~= Current End) with small epsilon
+                const isContiguous = Math.abs(next.startTime - current.endTime) < 0.05; // ~3 mins tolerance
 
-                group.forEach(g => {
-                    if (g.startTime < minStart) minStart = g.startTime;
-                    if (g.endTime > maxEnd) maxEnd = g.endTime;
-                });
-
-                // Create unified block
-                mergedBlocks.push({
-                    ...group[0],
-                    startTime: minStart,
-                    endTime: maxEnd,
-                    status: 'in-progress', // Unified status
-                    isSession: true // Treat as solid session for rendering
-                });
-
-                processedKeys.add(key);
-            } else {
-                mergedBlocks.push(b);
+                // Only merge if active task and contiguous
+                // We typically only want to merge "History + Active + Planned" sequences for the current task.
+                if (isSameTask && isSameDay && isContiguous && isTaskActive(current.taskId)) {
+                    // Merge
+                    current.endTime = Math.max(current.endTime, next.endTime);
+                    // Force Unified Status for visual continuity
+                    current.status = 'in-progress';
+                    current.isSession = true;
+                } else {
+                    mergedBlocks.push(current);
+                    current = next;
+                }
             }
-        });
+            mergedBlocks.push(current);
+        }
 
         blocks = mergedBlocks;
         schedule[empId] = blocks;

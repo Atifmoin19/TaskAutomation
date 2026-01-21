@@ -1032,7 +1032,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
                                       </>
                                     ) : (
                                       !isCompleted &&
-                                      !isOnHold && (
+                                      !isOnHold &&
+                                      block.status !== "completed" && (
                                         <HStack spacing={2} pt={2}>
                                           <Button
                                             leftIcon={<FaEdit />}
