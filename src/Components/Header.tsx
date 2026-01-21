@@ -77,10 +77,19 @@ const Header = () => {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
 
-    // Filter out future tasks
-    if (effectiveStart > now) return false;
+    // Filter out future tasks (Next Day onwards)
+    // We allow any task scheduled for TODAY (even if time > now) to be viewable/pickable
+    // as long as it falls within the current business day logic handled by getEffectiveStartDate
+    const tomorrowMidnight = new Date(todayMidnight);
+    tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
+
+    if (effectiveStart >= tomorrowMidnight) return false;
+
     // Filter out old past tasks
-    if (effectiveStart < todayMidnight) return false;
+    // EXCEPTION: "on-hold" tasks persist as pending actions regardless of start date
+    if (t.task_status !== "on-hold") {
+      if (effectiveStart < todayMidnight) return false;
+    }
 
     return true;
   }).length;

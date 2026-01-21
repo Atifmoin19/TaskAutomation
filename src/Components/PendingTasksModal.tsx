@@ -93,14 +93,21 @@ const PendingTasksModal: React.FC<PendingTasksModalProps> = ({
       .filter((t) => {
         const effectiveStart = getEffectiveStartDate(t);
 
-        // Condition 1: Must be actionable NOW (Effective Start <= Now)
-        if (effectiveStart > now) return false;
-
-        // Condition 2: Must not be from strict past (before today 00:00)
         const todayMidnight = new Date();
         todayMidnight.setHours(0, 0, 0, 0);
 
-        if (effectiveStart < todayMidnight) return false;
+        // Condition 1: Must be actionable TODAY or in PAST (Exception)
+        // We filter out strictly FUTURE DAYS (Tomorrow onwards)
+        const tomorrowMidnight = new Date(todayMidnight);
+        tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
+
+        if (effectiveStart >= tomorrowMidnight) return false;
+
+        // Condition 2: Must not be from strict past (before today 00:00)
+        // EXCEPTION: "on-hold" tasks persist as pending actions regardless of start date
+        if (t.task_status !== "on-hold") {
+          if (effectiveStart < todayMidnight) return false;
+        }
 
         return true;
       })

@@ -65,6 +65,14 @@ export const calculateSchedule = (
 
         myTasks.forEach(task => {
             if (task.task_sessions && task.task_sessions.length > 0) {
+                // 1. Normalize and Resolve Sessions
+                const normalizedSessions: Array<{
+                    start: Date;
+                    end: Date;
+                    status: string;
+                    dateKey: string;
+                }> = [];
+
                 task.task_sessions.forEach(session => {
                     // Suppress Active Session visual for Deferred (Queued) tasks
                     if (!session.end_time && deferredTaskIds.has(task.id)) {
@@ -91,11 +99,7 @@ export const calculateSchedule = (
 
                     const start = new Date(fixTime(session.start_time));
                     const end = new Date(fixTime(endTime));
-
                     const dateKey = getLocalDateKey(start);
-
-                    const startHour = start.getHours() + start.getMinutes() / 60;
-                    const endHour = end.getHours() + end.getMinutes() / 60;
 
                     // Determine status from session fields
                     // Priority: status_label (new session) > completion_status (closed session) > status > fallback
@@ -112,13 +116,52 @@ export const calculateSchedule = (
                             : 'backlog';
                     }
 
-                    // Add to schedule
+                    normalizedSessions.push({
+                        start,
+                        end,
+                        status: sessionStatus,
+                        dateKey
+                    });
+                });
+
+                // 2. Sort sessions chronologically
+                normalizedSessions.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+                // 3. Merge contiguous sessions with same status and date
+                const mergedSessions: typeof normalizedSessions = [];
+                if (normalizedSessions.length > 0) {
+                    let current = normalizedSessions[0];
+
+                    for (let i = 1; i < normalizedSessions.length; i++) {
+                        const next = normalizedSessions[i];
+
+                        // Merge condition: Same status AND Same day
+                        // Implicitly merges gaps if they are between two sessions of same status/day
+                        if (next.status === current.status && next.dateKey === current.dateKey) {
+                            // Extend completion date to the latest end time
+                            if (next.end.getTime() > current.end.getTime()) {
+                                current.end = next.end;
+                            }
+                        } else {
+                            mergedSessions.push(current);
+                            current = next;
+                        }
+                    }
+                    mergedSessions.push(current);
+                }
+
+                // 4. Add to Schedule
+                mergedSessions.forEach(session => {
+                    const { start, end, status, dateKey } = session;
+                    const startHour = start.getHours() + start.getMinutes() / 60;
+                    const endHour = end.getHours() + end.getMinutes() / 60;
+
                     schedule[dev.emp_id].push({
                         taskId: task.id,
                         startTime: startHour,
                         endTime: endHour,
                         date: dateKey,
-                        status: sessionStatus as any,
+                        status: status as any,
                         isSession: true
                     });
 
@@ -182,6 +225,15 @@ export const calculateSchedule = (
             // If not done, calculate remaining
             let totalRequired = 0;
 
+            // Strict Visual Rule: 
+            // Only 'in-progress' tasks (or similar active states) should be auto-scheduled/simulated on the timeline.
+            // 'todo' and 'backlog' tasks await user action (Pick) and should NOT appear as "Planned" blocks yet.
+            const isActive = status === 'in-progress' || status === 'in progress';
+            if (!isActive) {
+                remainingDuration[t.id] = 0;
+                return;
+            }
+
             if (t.remaining_seconds !== undefined) {
                 // Use backend provided remaining time (precise)
                 totalRequired = t.remaining_seconds / 3600;
@@ -213,8 +265,8 @@ export const calculateSchedule = (
 
             // Force a minimum block if task is Active (In-Progress) but calculation resulted in <= 0
             // This ensures the timeline always shows "Future Work" for currently active tasks which haven't been marked done.
-            const isActive = t.task_status === 'in-progress' || t.task_status === 'in progress';
-            if (isActive && remainingDuration[t.id] < 0.25) { // Minimum 15 mins for visibility
+            const isTaskActive = t.task_status === 'in-progress' || t.task_status === 'in progress';
+            if (isTaskActive && remainingDuration[t.id] < 0.25) { // Minimum 15 mins for visibility
                 remainingDuration[t.id] = Math.max(remainingDuration[t.id], 0.5); // Default to 30 mins overlap if overrun
             } else if (remainingDuration[t.id] <= EPSILON) {
                 // For non-active tasks (backlog?), keep small.
@@ -522,7 +574,67 @@ export const calculateSchedule = (
 
     // 4. Post-Process: Clean up visual overlaps in the final schedule for each developer
     Object.keys(schedule).forEach(empId => {
-        const blocks = schedule[empId];
+        let blocks = schedule[empId];
+
+        // 4a. MERGE Strategy for Active Tasks:
+        // User Request: "if that task is in progress do not show partition... show full width of task"
+        // We group all blocks (History + Planned) for 'in-progress' tasks on the same day and merge them.
+
+        const blocksByTaskDate: Record<string, TaskBlock[]> = {};
+        const taskStatusMap: Record<string, string> = {};
+
+        blocks.forEach(b => {
+            const key = `${b.taskId}_${b.date}`;
+            if (!blocksByTaskDate[key]) blocksByTaskDate[key] = [];
+            blocksByTaskDate[key].push(b);
+
+            if (!taskStatusMap[b.taskId]) {
+                const t = tasks.find(tsk => tsk.id === b.taskId);
+                if (t) taskStatusMap[b.taskId] = t.task_status?.toLowerCase() || '';
+            }
+        });
+
+        const mergedBlocks: TaskBlock[] = [];
+        const processedKeys = new Set<string>();
+
+        // Reconstruct blocks list with merged active tasks
+        blocks.forEach(b => {
+            const key = `${b.taskId}_${b.date}`;
+            const status = taskStatusMap[b.taskId];
+            const isActive = status === 'in-progress' || status === 'in progress';
+
+            if (isActive) {
+                if (processedKeys.has(key)) return; // Already effectively processed
+
+                const group = blocksByTaskDate[key];
+                // Merge this group into one block
+                let minStart = group[0].startTime;
+                let maxEnd = group[0].endTime;
+
+                group.forEach(g => {
+                    if (g.startTime < minStart) minStart = g.startTime;
+                    if (g.endTime > maxEnd) maxEnd = g.endTime;
+                });
+
+                // Create unified block
+                mergedBlocks.push({
+                    ...group[0],
+                    startTime: minStart,
+                    endTime: maxEnd,
+                    status: 'in-progress', // Unified status
+                    isSession: true // Treat as solid session for rendering
+                });
+
+                processedKeys.add(key);
+            } else {
+                mergedBlocks.push(b);
+            }
+        });
+
+        blocks = mergedBlocks;
+        schedule[empId] = blocks;
+
+
 
         // Sort chronologically
         blocks.sort((a, b) => {
