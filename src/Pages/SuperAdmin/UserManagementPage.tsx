@@ -45,7 +45,7 @@ const UserManagementPage: React.FC = () => {
   const [bulkDeleteUsers] = useBulkDeleteUsersMutation();
   const toast = useToast();
 
-  const { developers: reduxDevelopers } = useAppSelector(
+  const { developers: reduxDevelopers, currentUser } = useAppSelector(
     (state) => state.scheduler,
   );
 
@@ -55,9 +55,19 @@ const UserManagementPage: React.FC = () => {
     { refetchOnMountOrArgChange: true },
   );
 
-  const usersToDisplay = userList || [];
-  const potentialManagers =
-    usersToDisplay.length > 0 ? usersToDisplay : reduxDevelopers;
+  // Filter out users with higher or equal hierarchy
+  const currentUserRank = ROLE_RANK[currentUser?.emp_designation || ""] || 0;
+
+  const allUsers = userList || reduxDevelopers || [];
+  const usersToDisplay = allUsers.filter((u: Employee) => {
+    const userRank = ROLE_RANK[u.emp_designation] || 0;
+    // Only show users with strictly LOWER rank
+    // e.g. Rank 5 (CTO) sees Rank 4 (EM) and below
+    // Rank 3 (L2) sees Rank 2 (L1) and below
+    return userRank < currentUserRank;
+  });
+
+  const potentialManagers = usersToDisplay;
 
   const [triggerUserList] = useLazyUserListQuery();
 
