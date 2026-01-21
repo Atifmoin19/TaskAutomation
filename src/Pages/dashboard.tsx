@@ -13,6 +13,7 @@ import {
   VStack,
   HStack,
   Select,
+  Avatar,
 } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
 
@@ -25,12 +26,12 @@ import { Task } from "types";
 import SimpleLayout from "Layouts/simpleLayout";
 import { addDeveloper, addTask } from "app/slices/scheduler.slice";
 import { useTaskListQuery, useLazyUserListQuery } from "Services/user.api";
-import { ADMIN_ROLES, SUPER_ADMIN_ROLES } from "Utils/constants";
+import { ADMIN_ROLES, SUPER_ADMIN_ROLES, ROLE_RANK } from "Utils/constants";
 
 const Dashboard: React.FC = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [editTask, setEditTask] = useState<Task | null>(null);
-  const { currentUser } = useAppSelector((state) => state.scheduler);
+  const { currentUser, tasks } = useAppSelector((state) => state.scheduler);
   const navigate = useNavigate();
 
   // Assuming currentUser is available in scope or imported
@@ -49,7 +50,7 @@ const Dashboard: React.FC = () => {
     {
       refetchOnMountOrArgChange: true,
       skip: !currentUser, // Wait until we know who the user is
-    }
+    },
   );
 
   const [getUserList] = useLazyUserListQuery();
@@ -159,6 +160,112 @@ const Dashboard: React.FC = () => {
                 </Button>
               </HStack>
             </Flex>
+
+            {/* Available Developers Section */}
+            <Box
+              mb={6}
+              bg="white"
+              p={4}
+              borderRadius="xl"
+              shadow="sm"
+              border="1px solid"
+              borderColor="gray.100"
+            >
+              <Heading size="sm" mb={3} color="gray.600">
+                Available Developers
+              </Heading>
+              <Flex gap={3} wrap="wrap">
+                {(() => {
+                  const availableDevs = allDevelopers.filter((dev) => {
+                    // Filter by Manager if selected
+                    if (
+                      selectedManagerId &&
+                      dev.manager_id !== selectedManagerId
+                    )
+                      return false;
+
+                    // Filter Out Managers/Admins (Rank >= 4)
+                    // We need ROLE_RANK. If not imported, we default to showing them if 1-3.
+                    // Assuming standard dev roles are ASE(1), SE(1), etc.
+                    const rank = ROLE_RANK[dev.emp_designation] || 1;
+                    if (rank >= 4) return false;
+
+                    // Check for Active Task
+                    const hasActiveTask =
+                      tasks &&
+                      tasks.some(
+                        (t) =>
+                          t.task_assigned_to === dev.emp_id &&
+                          (t.task_status === "in-progress" ||
+                            t.task_status === "in progress"),
+                      );
+                    return !hasActiveTask;
+                  });
+
+                  if (availableDevs.length === 0) {
+                    return (
+                      <Text fontSize="sm" color="gray.400" fontStyle="italic">
+                        No developers currently available.
+                      </Text>
+                    );
+                  }
+
+                  return availableDevs.map((dev) => (
+                    <Flex
+                      key={dev.emp_id}
+                      role="group"
+                      align="center"
+                      bg="gray.50"
+                      borderRadius="full"
+                      border="1px solid"
+                      borderColor="gray.200"
+                      p={1}
+                      pr={1}
+                      cursor="pointer"
+                      transition="all 0.3s ease"
+                      maxW="42px" // Collapsed width (Avatar + padding)
+                      overflow="hidden"
+                      whiteSpace="nowrap"
+                      _hover={{
+                        maxW: "200px", // Expanded width
+                        pr: 4,
+                        bg: "green.50",
+                        borderColor: "green.200",
+                      }}
+                    >
+                      <Avatar
+                        size="sm"
+                        name={dev.emp_name}
+                        src={dev.avatar}
+                        border="1px solid white"
+                        ignoreFallback
+                      />
+                      <Text
+                        ml={2}
+                        fontSize="sm"
+                        fontWeight="medium"
+                        color="gray.700"
+                        opacity={0}
+                        transform="translateX(-10px)"
+                        transition="all 0.3s ease"
+                        _groupHover={{ opacity: 1, transform: "translateX(0)" }}
+                        // Note: _groupHover requires 'role=group' on parent usually, or direct css
+                        sx={{
+                          ".chakra-ui-dark &": { color: "gray.200" },
+                          // Inline hover trick for parent interaction
+                          transitionDelay: "0.1s",
+                        }}
+                        // We use the parent hover state implicitly by nesting styles if needed,
+                        // but Chakra's _hover on parent affecting child is best done with css vars or role='group'
+                      >
+                        {dev.emp_name}
+                      </Text>
+                    </Flex>
+                  ));
+                })()}
+              </Flex>
+            </Box>
+
             <TimelineView
               onEditTask={handleEditTask}
               filteredManagerId={selectedManagerId}
