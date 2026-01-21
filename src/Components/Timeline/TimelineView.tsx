@@ -108,15 +108,8 @@ const TimelineView: React.FC<TimelineViewProps> = ({
   // Default date logic: If now > EndHour, show Tomorrow.
   // Default date logic: If now > EndHour, show Tomorrow.
   const [currentDate, setCurrentDate] = useState(() => {
-    // Check localStorage first
-    const savedDate = localStorage.getItem("timeline_view_date");
-    if (savedDate) {
-      const d = new Date(savedDate);
-      if (!isNaN(d.getTime())) {
-        return d;
-      }
-    }
-
+    // Force reset to Today (or Tomorrow if late), ignoring LocalStorage for now
+    // This fixes the issue where users are stuck on an old date (e.g. 15 Jan)
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
     if (currentHour >= config.endHour) {
